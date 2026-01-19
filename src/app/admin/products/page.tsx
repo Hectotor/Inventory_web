@@ -24,6 +24,7 @@ type Product = {
   id: string;
   name: string;
   sub_name?: string;
+  description?: string;
   price_ht: number;
   tva: number;
   barcode: string;
@@ -50,6 +51,7 @@ export default function AdminProducts() {
   const [formData, setFormData] = useState({
     name: "",
     sub_name: "",
+    description: "",
     price_ht: "",
     tva: "",
     barcode: "",
@@ -122,6 +124,7 @@ export default function AdminProducts() {
       const productData: {
         name: string;
         sub_name?: string;
+        description?: string;
         price_ht: number;
         tva: number;
         barcode: string;
@@ -139,6 +142,10 @@ export default function AdminProducts() {
 
       if (formData.sub_name.trim()) {
         productData.sub_name = formData.sub_name.trim();
+      }
+
+      if (formData.description.trim()) {
+        productData.description = formData.description.trim();
       }
 
       if (formData.image_url) {
@@ -172,6 +179,7 @@ export default function AdminProducts() {
     setFormData({
       name: product.name,
       sub_name: product.sub_name || "",
+      description: product.description || "",
       price_ht: product.price_ht.toString(),
       tva: product.tva.toString(),
       barcode: product.barcode || "",
@@ -257,6 +265,7 @@ export default function AdminProducts() {
     setFormData({
       name: "",
       sub_name: "",
+      description: "",
       price_ht: "",
       tva: "",
       barcode: "",
@@ -402,6 +411,23 @@ export default function AdminProducts() {
             </div>
             <div className="grid gap-2">
               <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                rows={4}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100 resize-none"
+                placeholder="Description du produit..."
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
                 Code-barres
               </label>
               <input
@@ -538,6 +564,11 @@ export default function AdminProducts() {
                     {product.sub_name && (
                       <p className="text-xs text-[#6B7280] line-clamp-1">
                         {product.sub_name}
+                      </p>
+                    )}
+                    {product.description && (
+                      <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5">
+                        {product.description}
                       </p>
                     )}
                   </div>

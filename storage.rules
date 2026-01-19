@@ -7,9 +7,58 @@ service firebase.storage {
       return request.auth != null;
     }
     
+    // Helper function to get user's company_id from Firestore
+    function getUserCompanyId() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.company_id;
+    }
+    
+    // Helper function to get user's role
+    function getUserRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == "admin";
+    }
+    
+    // Helper function to check if user can manage data (admin or area manager)
+    function canManageData() {
+      return isAuthenticated() && (getUserRole() == "admin" || getUserRole() == "area manager");
+    }
+
     // Companies branding files (logos)
     match /companies/{companyId}/branding/logo {
-      allow read, write: if isAuthenticated();
+      // Tous les utilisateurs de l'entreprise peuvent lire les logos
+      allow read: if isAuthenticated() &&
+                     getUserCompanyId() == companyId;
+
+      // Seuls les admins peuvent uploader/modifier les logos
+      allow write: if isAdmin() &&
+                      getUserCompanyId() == companyId &&
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB max
+                      request.resource.contentType.matches('image/.*');
+
+      // Seuls les admins peuvent supprimer les logos
+      allow delete: if isAdmin() &&
+                       getUserCompanyId() == companyId;
+    }
+
+    // Products images
+    match /companies/{companyId}/products/{productId} {
+      // Tous les utilisateurs de l'entreprise peuvent lire les images
+      allow read: if isAuthenticated() &&
+                     getUserCompanyId() == companyId;
+
+      // Seuls les admins et area managers peuvent uploader/modifier les images
+      allow write: if canManageData() &&
+                      getUserCompanyId() == companyId &&
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB max
+                      request.resource.contentType.matches('image/.*');
+
+      // Seuls les admins et area managers peuvent supprimer les images
+      allow delete: if canManageData() &&
+                       getUserCompanyId() == companyId;
     }
   }
 }

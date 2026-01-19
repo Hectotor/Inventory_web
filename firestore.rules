@@ -12,34 +12,109 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.company_id;
     }
     
+    // Helper function to get user's role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == "admin";
+    }
+    
+    // Helper function to check if user can manage data (admin or area manager)
+    function canManageData() {
+      return isAuthenticated() && (getUserRole() == "admin" || getUserRole() == "area manager");
+    }
+    
+    // Helper function to check if user can delete users (admin or area manager)
+    function canDeleteUsers() {
+      return isAuthenticated() && (getUserRole() == "admin" || getUserRole() == "area manager");
+    }
+    
+    // Helper function to check if user can update users (admin, area manager, sales, warehouse)
+    function canUpdateUsers() {
+      return isAuthenticated() && (
+        getUserRole() == "admin" || 
+        getUserRole() == "area manager" || 
+        getUserRole() == "sales" || 
+        getUserRole() == "warehouse"
+      );
+    }
+    
+    // Helper function to check if user can create users (admin, area manager, sales, warehouse)
+    function canCreateUsers() {
+      return isAuthenticated() && (
+        getUserRole() == "admin" || 
+        getUserRole() == "area manager" || 
+        getUserRole() == "sales" || 
+        getUserRole() == "warehouse"
+      );
+    }
+    
+    // Helper function to check if user belongs to same company
+    function isSameCompany(companyId) {
+      return isAuthenticated() && getUserCompanyId() == companyId;
+    }
+    
     // Users collection
     match /users/{userId} {
-      // Un utilisateur peut lire et modifier son propre document
+      // Un utilisateur peut toujours lire et modifier son propre document
       allow read, update: if isAuthenticated() && request.auth.uid == userId;
       
-      // Un utilisateur peut créer des documents pour d'autres utilisateurs
-      allow create: if isAuthenticated();
+      // Création : admin, area manager, sales et warehouse peuvent créer des utilisateurs pour leur entreprise
+      allow create: if canCreateUsers() && 
+                       request.resource.data.company_id == getUserCompanyId();
       
-      // Un utilisateur peut lire/modifier/supprimer les documents de sa même entreprise
-      allow read, update, delete: if isAuthenticated() && 
-                                     resource.data.company_id == getUserCompanyId();
+      // Lecture : les utilisateurs peuvent lire les membres de leur entreprise
+      allow read: if isSameCompany(resource.data.company_id);
+      
+      // Modification : admin, area manager, sales et warehouse peuvent modifier d'autres utilisateurs de leur entreprise
+      allow update: if canUpdateUsers() && 
+                      resource.data.company_id == getUserCompanyId() &&
+                      request.auth.uid != userId; // Ne peut pas se modifier soi-même (utilise la règle ci-dessus)
+      
+      // Suppression : admin et area manager peuvent supprimer d'autres utilisateurs de leur entreprise
+      allow delete: if canDeleteUsers() && 
+                      resource.data.company_id == getUserCompanyId() &&
+                      request.auth.uid != userId; // Ne peut pas se supprimer soi-même
     }
     
     // Companies collection
     match /companies/{companyId} {
-      allow read, write: if isAuthenticated();
+      // Lecture : les utilisateurs peuvent lire leur entreprise
+      allow read: if isSameCompany(companyId);
+      
+      // Écriture : uniquement les admins peuvent modifier leur entreprise
+      allow write: if isAdmin() && isSameCompany(companyId);
     }
     
     // Products collection
     match /products/{productId} {
-      allow read, write: if isAuthenticated() && 
-                           resource.data.company_id == getUserCompanyId();
+      // Lecture : tous les utilisateurs de l'entreprise peuvent lire les produits
+      allow read: if isSameCompany(resource.data.company_id);
+      
+      // Création : admins et area managers peuvent créer des produits
+      allow create: if canManageData() && 
+                       request.resource.data.company_id == getUserCompanyId();
+      
+      // Modification/Suppression : admins et area managers peuvent modifier/supprimer
+      allow update, delete: if canManageData() && 
+                              resource.data.company_id == getUserCompanyId();
     }
     
     // Agencies collection
     match /agencies/{agencyId} {
-      allow read, write: if isAuthenticated() && 
-                           resource.data.company_id == getUserCompanyId();
+      // Lecture : tous les utilisateurs de l'entreprise peuvent lire les agences
+      allow read: if isSameCompany(resource.data.company_id);
+      
+      // Création : admins et area managers peuvent créer des agences
+      allow create: if canManageData() && 
+                       request.resource.data.company_id == getUserCompanyId();
+      
+      // Modification/Suppression : admins et area managers peuvent modifier/supprimer
+      allow update, delete: if canManageData() && 
+                              resource.data.company_id == getUserCompanyId();
     }
     
   }

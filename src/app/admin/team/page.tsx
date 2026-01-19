@@ -4,21 +4,19 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
-  addDoc,
   getDocs,
   getDoc,
   doc,
   updateDoc,
   deleteDoc,
-  setDoc,
   query,
   where,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 
-import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth, db, functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 
 type TeamMember = {
   id: string;
@@ -30,6 +28,9 @@ type TeamMember = {
   role: "admin" | "area manager" | "warehouse" | "sales" | "driver" | "customer";
   is_active: boolean;
   company_id: string;
+  street_address?: string;
+  postal_code?: string;
+  country?: string;
   created_at?: Timestamp;
   updated_at?: Timestamp;
 };
@@ -69,6 +70,9 @@ export default function AdminTeam() {
     confirmPassword: "",
     role: "sales" as TeamMember["role"],
     is_active: true,
+    street_address: "",
+    postal_code: "",
+    country: "",
   });
 
   const roles = [
@@ -141,6 +145,9 @@ export default function AdminTeam() {
       is_active: doc.data().is_active ?? true,
       agencies_id: doc.data().agencies_id || "",
       company_id: doc.data().company_id || "",
+      street_address: doc.data().street_address || "",
+      postal_code: doc.data().postal_code || "",
+      country: doc.data().country || "",
       created_at: doc.data().created_at,
       updated_at: doc.data().updated_at,
     })) as TeamMember[];
@@ -175,6 +182,9 @@ export default function AdminTeam() {
         is_active: boolean;
         company_id: string;
         agencies_id?: string;
+        street_address?: string;
+        postal_code?: string;
+        country?: string;
       } = {
         firstname: formData.firstname.trim(),
         lastname: formData.lastname.trim(),
@@ -192,8 +202,21 @@ export default function AdminTeam() {
         memberData.agencies_id = formData.agencies_id;
       }
 
+      // Ajouter les champs d'adresse uniquement pour les clients
+      if (formData.role === "customer") {
+        if (formData.street_address.trim()) {
+          memberData.street_address = formData.street_address.trim();
+        }
+        if (formData.postal_code.trim()) {
+          memberData.postal_code = formData.postal_code.trim();
+        }
+        if (formData.country.trim()) {
+          memberData.country = formData.country.trim().toUpperCase();
+        }
+      }
+
       if (editingMember) {
-        await updateDoc(doc(db, "users", editingMember.id), {
+        const updateData: any = {
           first_name: memberData.firstname,
           last_name: memberData.lastname,
           email: memberData.email,
@@ -202,42 +225,65 @@ export default function AdminTeam() {
           is_active: memberData.is_active,
           agencies_id: memberData.agencies_id || null,
           updated_at: serverTimestamp(),
-        });
+        };
+
+        // Ajouter les champs d'adresse uniquement pour les clients
+        if (memberData.role === "customer") {
+          updateData.street_address = memberData.street_address || null;
+          updateData.postal_code = memberData.postal_code || null;
+          updateData.country = memberData.country || null;
+        } else {
+          // Supprimer les champs d'adresse si le rôle change de "customer" à autre chose
+          updateData.street_address = null;
+          updateData.postal_code = null;
+          updateData.country = null;
+        }
+
+        await updateDoc(doc(db, "users", editingMember.id), updateData);
         setNotification({
           message: `"${memberData.firstname} ${memberData.lastname}" a été modifié`,
           type: "success",
           memberId: editingMember.id,
         });
       } else {
-        // Créer le compte Firebase Auth (obligatoire)
+        // Créer le compte via Cloud Function
         if (!formData.password.trim() || formData.password.trim().length < 6) {
           throw new Error("Le mot de passe est requis et doit contenir au moins 6 caractères");
         }
 
-        const { user } = await createUserWithEmailAndPassword(
-          auth,
-          memberData.email,
-          formData.password.trim(),
-        );
-
-        // Créer le document dans la collection "users"
-        await setDoc(doc(db, "users", user.uid), {
-          company_id: companyId,
+        const createTeamMember = httpsCallable(functions, "createTeamMember");
+        const createData: any = {
+          email: memberData.email,
+          password: formData.password.trim(),
           first_name: memberData.firstname,
           last_name: memberData.lastname,
-          email: memberData.email,
           phone: memberData.phone || null,
           role: memberData.role,
-          is_active: memberData.is_active,
+          company_id: companyId,
           agencies_id: memberData.agencies_id || null,
-          created_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        });
+          is_active: memberData.is_active,
+        };
 
+        // Ajouter les champs d'adresse uniquement pour les clients
+        if (memberData.role === "customer") {
+          if (memberData.street_address) {
+            createData.street_address = memberData.street_address;
+          }
+          if (memberData.postal_code) {
+            createData.postal_code = memberData.postal_code;
+          }
+          if (memberData.country) {
+            createData.country = memberData.country;
+          }
+        }
+
+        const result = await createTeamMember(createData);
+
+        const response = result.data as { userId: string; message: string };
         setNotification({
           message: `"${memberData.firstname} ${memberData.lastname}" a été ajouté avec un compte de connexion`,
           type: "success",
-          memberId: user.uid,
+          memberId: response.userId,
         });
       }
 
@@ -274,6 +320,9 @@ export default function AdminTeam() {
       confirmPassword: "",
       role: member.role,
       is_active: member.is_active,
+      street_address: member.street_address || "",
+      postal_code: member.postal_code || "",
+      country: member.country || "",
     });
     setShowAddForm(true);
   };
@@ -339,6 +388,9 @@ export default function AdminTeam() {
       confirmPassword: "",
       role: "sales",
       is_active: true,
+      street_address: "",
+      postal_code: "",
+      country: "",
     });
     setEditingMember(null);
     setShowAddForm(false);
@@ -590,6 +642,63 @@ export default function AdminTeam() {
                 </select>
               </div>
             </div>
+            {formData.role === "customer" && (
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+                    Adresse
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.street_address}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        street_address: e.target.value,
+                      }))
+                    }
+                    className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                    placeholder="Rue et numéro"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+                      Code postal
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.postal_code}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          postal_code: e.target.value,
+                        }))
+                      }
+                      className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                      placeholder="Code postal"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+                      Pays
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.country}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          country: e.target.value,
+                        }))
+                      }
+                      className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                      placeholder="Pays"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
