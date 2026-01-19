@@ -180,7 +180,7 @@ const createTeamMember = functions
 
   try {
     // Utiliser la fonction createUser pour créer l'utilisateur
-    const result = await createUser({
+    const userData = {
       email: data.email,
       password: data.password,
       first_name: data.first_name,
@@ -190,7 +190,22 @@ const createTeamMember = functions
       company_id: data.company_id,
       agencies_id: data.agencies_id,
       is_active: data.is_active,
-    });
+    };
+
+    // Ajouter les champs d'adresse uniquement pour les clients
+    if (data.role === "customer") {
+      if (data.street_address) {
+        userData.street_address = data.street_address;
+      }
+      if (data.postal_code) {
+        userData.postal_code = data.postal_code;
+      }
+      if (data.country) {
+        userData.country = data.country;
+      }
+    }
+
+    const result = await createUser(userData);
 
     return {
       success: result.success,
@@ -198,17 +213,25 @@ const createTeamMember = functions
       message: result.message,
     };
   } catch (error) {
+    console.error("❌ Erreur dans createTeamMember:", error);
+    console.error("❌ Stack:", error.stack);
+    console.error("❌ Data reçue:", JSON.stringify(data, null, 2));
+    
     // Gérer les erreurs spécifiques
-    if (error.code === "auth/email-already-exists") {
+    if (error.code === "auth/email-already-exists" || error.message?.includes("email-already-exists")) {
       throw new functions.https.HttpsError(
         "already-exists",
         "Cet email est déjà utilisé"
       );
     }
 
+    // Log l'erreur complète pour debug
+    const errorMessage = error.message || "Erreur inconnue";
+    const errorCode = error.code || "unknown";
+    
     throw new functions.https.HttpsError(
       "internal",
-      `Erreur lors de la création: ${error.message}`
+      `Erreur lors de la création: ${errorMessage} (code: ${errorCode})`
     );
   }
 });

@@ -471,7 +471,7 @@ export default function AdminTeam() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  Prénom
+                  Prénom *
                 </label>
                 <input
                   type="text"
@@ -488,7 +488,7 @@ export default function AdminTeam() {
               </div>
               <div className="grid gap-2">
                 <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  Nom
+                  Nom *
                 </label>
                 <input
                   type="text"
@@ -507,7 +507,7 @@ export default function AdminTeam() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  Email
+                  Email *
                 </label>
                 <input
                   type="email"
@@ -524,7 +524,7 @@ export default function AdminTeam() {
               </div>
               <div className="grid gap-2">
                 <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  Téléphone
+                  Téléphone *
                 </label>
                 <input
                   type="tel"
@@ -535,6 +535,7 @@ export default function AdminTeam() {
                       phone: e.target.value,
                     }))
                   }
+                  required
                   className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                 />
               </div>
@@ -599,7 +600,7 @@ export default function AdminTeam() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  Rôle
+                  Rôle *
                 </label>
                 <select
                   value={formData.role}
@@ -621,7 +622,7 @@ export default function AdminTeam() {
               </div>
               <div className="grid gap-2">
                 <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  Agence
+                  Agence *
                 </label>
                 <select
                   value={formData.agencies_id}
@@ -631,9 +632,10 @@ export default function AdminTeam() {
                       agencies_id: e.target.value,
                     }))
                   }
+                  required
                   className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                 >
-                  <option value="">Aucune agence</option>
+                  <option value="">Sélectionner une agence</option>
                   {agencies.map((agency) => (
                     <option key={agency.id} value={agency.id}>
                       {agency.name}
@@ -646,7 +648,7 @@ export default function AdminTeam() {
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                    Adresse
+                    Adresse *
                   </label>
                   <input
                     type="text"
@@ -657,6 +659,7 @@ export default function AdminTeam() {
                         street_address: e.target.value,
                       }))
                     }
+                    required
                     className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                     placeholder="Rue et numéro"
                   />
@@ -664,7 +667,7 @@ export default function AdminTeam() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                      Code postal
+                      Code postal *
                     </label>
                     <input
                       type="text"
@@ -675,13 +678,14 @@ export default function AdminTeam() {
                           postal_code: e.target.value,
                         }))
                       }
+                      required
                       className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                       placeholder="Code postal"
                     />
                   </div>
                   <div className="grid gap-2">
                     <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                      Pays
+                      Pays *
                     </label>
                     <input
                       type="text"
@@ -692,6 +696,7 @@ export default function AdminTeam() {
                           country: e.target.value,
                         }))
                       }
+                      required
                       className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                       placeholder="Pays"
                     />
