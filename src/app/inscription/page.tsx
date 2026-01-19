@@ -298,7 +298,7 @@ export default function Inscription() {
             </p>
             <button
               type="button"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/admin")}
               className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl bg-zinc-900 text-sm font-semibold text-white transition hover:bg-zinc-800"
             >
               Suivant

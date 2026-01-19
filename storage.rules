@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Users must be authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Companies branding files (logos)
+    match /companies/{companyId}/branding/logo {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

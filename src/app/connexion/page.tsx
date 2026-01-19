@@ -21,7 +21,7 @@ export default function Connexion() {
     try {
       const credential = await signInWithEmail(email, password);
       const role = await getUserRole(credential.user.uid);
-      router.push(role === "ADMIN" ? "/admin" : "/dashboard");
+      router.push("/admin");
     } catch (caughtError) {
       const message =
         caughtError instanceof Error

@@ -11,9 +11,9 @@ import { signOutUser } from "@/services/auth";
 const menuItems = [
   { label: "Vue d’ensemble", href: "/admin", icon: "✨" },
   { label: "Commandes", href: "/admin", icon: "📦" },
-  { label: "Agences", href: "/admin", icon: "🧭" },
+  { label: "Agences", href: "/admin/agencies", icon: "🧭" },
   { label: "Produits", href: "/admin/products", icon: "🧩" },
-  { label: "Équipe", href: "/admin", icon: "🤝" },
+  { label: "Équipe", href: "/admin/team", icon: "🤝" },
   { label: "Profil", href: "/admin/profile", icon: "🪪" },
 ];
 
@@ -122,7 +122,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </aside>
 
         <div className="flex-1">
-          <main className="mt-6">{children}</main>
+          <main>{children}</main>
         </div>
       </div>
     </div>
