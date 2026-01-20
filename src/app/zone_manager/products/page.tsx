@@ -35,13 +35,12 @@ type Product = {
   updated_at?: Timestamp;
 };
 
-export default function AdminProducts() {
+export default function ZoneManagerProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [notification, setNotification] = useState<{
@@ -77,27 +76,21 @@ export default function AdminProducts() {
         return;
       }
 
-      const userData = userSnapshot.data() as { company_id?: string; role?: string };
+      const userData = userSnapshot.data() as { company_id?: string };
       if (!userData.company_id) {
         setProducts([]);
         setCompanyId(null);
-        setUserRole(null);
         setIsLoading(false);
         return;
       }
 
       setCompanyId(userData.company_id);
-      setUserRole(userData.role || null);
       await loadProducts(userData.company_id);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
-
-  const canManageProducts = () => {
-    return userRole === "admin" || userRole === "area manager";
-  };
 
   const loadProducts = async (cid: string) => {
     const productsSnapshot = await getDocs(
@@ -296,7 +289,7 @@ export default function AdminProducts() {
 
   return (
     <div className="space-y-6">
-      {showAddForm && canManageProducts() && (
+      {showAddForm && (
         <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold">
@@ -505,18 +498,16 @@ export default function AdminProducts() {
             <span className="text-sm text-[#6B7280]">
               {products.length} {products.length === 1 ? "produit" : "produits"}
             </span>
-            {canManageProducts() && (
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
-                  setShowAddForm(true);
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
-              >
-                + Ajouter un produit
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setShowAddForm(true);
+              }}
+              className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
+            >
+              + Ajouter un produit
+            </button>
           </div>
         </div>
         {products.length === 0 ? (
@@ -623,60 +614,58 @@ export default function AdminProducts() {
                   )}
 
                   {/* Actions */}
-                  {canManageProducts() && (
-                    <div className="pt-3 border-t border-zinc-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(product)}
-                          className="flex-1 inline-flex h-9 items-center justify-center rounded-xl bg-[#111827] px-3 text-xs font-semibold text-white transition hover:bg-black"
-                          title="Modifier"
-                        >
-                          ✏️ Modifier
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(product)}
-                          className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition ${
-                            product.is_active
-                              ? "border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100"
-                              : "border-green-200 bg-green-50 text-green-600 hover:bg-green-100"
-                          }`}
-                          title={product.is_active ? "Désactiver" : "Activer"}
-                        >
-                          {product.is_active ? "⏸" : "▶"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(product.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
-                          title="Supprimer"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                  <div className="pt-3 border-t border-zinc-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(product)}
+                        className="flex-1 inline-flex h-9 items-center justify-center rounded-xl bg-[#111827] px-3 text-xs font-semibold text-white transition hover:bg-black"
+                        title="Modifier"
+                      >
+                        ✏️ Modifier
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(product)}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+                          product.is_active
+                            ? "border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100"
+                            : "border-green-200 bg-green-50 text-green-600 hover:bg-green-100"
+                        }`}
+                        title={product.is_active ? "Désactiver" : "Activer"}
+                      >
+                        {product.is_active ? "⏸" : "▶"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(product.id)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                        title="Supprimer"
+                      >
+                        🗑️
+                      </button>
                     </div>
-                  )}
-                  {/* Notification pour ce produit */}
-                  {notification && notification.productId === product.id && (
-                    <div
-                      className={`rounded-xl border px-3 py-2 text-xs animate-[slideIn_0.3s_ease-out] ${
-                        notification.type === "success"
-                          ? "border-green-200 bg-green-50 text-green-800"
-                          : "border-red-200 bg-red-50 text-red-800"
-                      }`}
-                      style={{ animation: "slideIn 0.3s ease-out" }}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span>
-                          {notification.type === "success" ? "✓" : "✗"}
-                        </span>
-                        <span className="font-medium">
-                          {notification.message}
-                        </span>
+                    {/* Notification pour ce produit */}
+                    {notification && notification.productId === product.id && (
+                      <div
+                        className={`rounded-xl border px-3 py-2 text-xs animate-[slideIn_0.3s_ease-out] ${
+                          notification.type === "success"
+                            ? "border-green-200 bg-green-50 text-green-800"
+                            : "border-red-200 bg-red-50 text-red-800"
+                        }`}
+                        style={{ animation: "slideIn 0.3s ease-out" }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>
+                            {notification.type === "success" ? "✓" : "✗"}
+                          </span>
+                          <span className="font-medium">
+                            {notification.message}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}

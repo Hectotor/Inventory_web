@@ -42,13 +42,13 @@ type Agency = {
   name: string;
 };
 
-export default function AdminTeam() {
+export default function ZoneManagerTeam() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [currentUserAgencyId, setCurrentUserAgencyId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [notification, setNotification] = useState<{
@@ -80,8 +80,8 @@ export default function AdminTeam() {
     country: "",
   });
 
-  const allRoles = [
-    { value: "admin", label: "Admin" },
+  // Les zone managers ne peuvent pas créer ou modifier des admins
+  const roles = [
     { value: "area manager", label: "Responsable de zone" },
     { value: "warehouse", label: "Entrepôt" },
     { value: "sales", label: "Commercial" },
@@ -89,16 +89,17 @@ export default function AdminTeam() {
     { value: "customer", label: "Client" },
   ];
 
-  // Filtrer les rôles : seul l'admin peut voir et sélectionner le rôle "admin"
-  const roles = currentUserRole === "admin" 
-    ? allRoles 
-    : allRoles.filter((role) => role.value !== "admin");
+  // Pour les zone managers, filtrer les agences pour ne montrer que leur propre agence
+  const availableAgencies = currentUserAgencyId
+    ? agencies.filter((agency) => agency.id === currentUserAgencyId)
+    : agencies;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         setTeamMembers([]);
         setCompanyId(null);
+        setCurrentUserAgencyId(null);
         setIsLoading(false);
         return;
       }
@@ -107,22 +108,32 @@ export default function AdminTeam() {
       if (!userSnapshot.exists()) {
         setTeamMembers([]);
         setCompanyId(null);
-        setCurrentUserRole("");
+        setCurrentUserAgencyId(null);
         setIsLoading(false);
         return;
       }
 
-      const userData = userSnapshot.data() as { company_id?: string; role?: string };
+      const userData = userSnapshot.data() as { company_id?: string; agencies_id?: string };
       if (!userData.company_id) {
         setTeamMembers([]);
         setCompanyId(null);
-        setCurrentUserRole("");
+        setCurrentUserAgencyId(null);
         setIsLoading(false);
         return;
       }
 
       setCompanyId(userData.company_id);
-      setCurrentUserRole(userData.role || "");
+      const agencyId = userData.agencies_id || null;
+      setCurrentUserAgencyId(agencyId);
+      
+      // Si le zone manager a une agence, définir automatiquement l'agence dans le formulaire
+      if (agencyId) {
+        setFormData((prev) => ({
+          ...prev,
+          agencies_id: agencyId,
+        }));
+      }
+
       await Promise.all([
         loadTeamMembers(userData.company_id),
         loadAgencies(userData.company_id),
@@ -145,9 +156,18 @@ export default function AdminTeam() {
   };
 
   const loadTeamMembers = async (cid: string) => {
-    const membersSnapshot = await getDocs(
-      query(collection(db, "users"), where("company_id", "==", cid)),
-    );
+    const queryConstraint = currentUserAgencyId
+      ? query(
+          collection(db, "users"),
+          where("company_id", "==", cid),
+          where("agencies_id", "==", currentUserAgencyId)
+        )
+      : query(
+          collection(db, "users"),
+          where("company_id", "==", cid)
+        );
+    
+    const membersSnapshot = await getDocs(queryConstraint);
     const membersList = membersSnapshot.docs
       .map((doc) => ({
         id: doc.id,
@@ -175,10 +195,10 @@ export default function AdminTeam() {
     e.preventDefault();
     if (!companyId) return;
 
-    // Vérifier que seul un admin peut créer/modifier un utilisateur avec le rôle "admin"
-    if (formData.role === "admin" && currentUserRole !== "admin") {
+    // Vérifier que le zone manager ne peut créer/modifier que des utilisateurs de sa propre agence
+    if (currentUserAgencyId && formData.agencies_id !== currentUserAgencyId) {
       setNotification({
-        message: "Vous n'avez pas la permission de créer ou modifier un utilisateur admin",
+        message: "Vous ne pouvez ajouter des utilisateurs que pour votre propre agence",
         type: "error",
         memberId: editingMember?.id || "",
       });
@@ -230,11 +250,14 @@ export default function AdminTeam() {
         memberData.phone = formData.phone.trim();
       }
 
-      if (formData.agencies_id) {
+      // Pour les zone managers, forcer l'agence_id à leur propre agence
+      if (currentUserAgencyId) {
+        memberData.agencies_id = currentUserAgencyId;
+      } else if (formData.agencies_id) {
         memberData.agencies_id = formData.agencies_id;
       }
 
-      // Ajouter les champs spécifiques uniquement pour les clients
+      // Ajouter les champs d'adresse uniquement pour les clients
       if (formData.role === "customer") {
         if (formData.company_name.trim()) {
           memberData.company_name = formData.company_name.trim();
@@ -265,7 +288,7 @@ export default function AdminTeam() {
           updated_at: serverTimestamp(),
         };
 
-        // Ajouter les champs spécifiques uniquement pour les clients
+        // Ajouter les champs d'adresse uniquement pour les clients
         if (memberData.role === "customer") {
           updateData.company_name = memberData.company_name || null;
           updateData.street_address = memberData.street_address || null;
@@ -306,7 +329,7 @@ export default function AdminTeam() {
           is_active: memberData.is_active,
         };
 
-        // Ajouter les champs spécifiques uniquement pour les clients
+        // Ajouter les champs d'adresse uniquement pour les clients
         if (memberData.role === "customer") {
           if (memberData.company_name) {
             createData.company_name = memberData.company_name;
@@ -429,7 +452,7 @@ export default function AdminTeam() {
 
   const resetForm = () => {
     setFormData({
-      agencies_id: "",
+      agencies_id: currentUserAgencyId || "", // Réinitialiser avec l'agence du zone manager si disponible
       firstname: "",
       lastname: "",
       email: "",
@@ -558,15 +581,21 @@ export default function AdminTeam() {
                     }))
                   }
                   required
-                  className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                  disabled={!!currentUserAgencyId} // Désactiver si le zone manager a une agence fixe
+                  className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100 disabled:bg-zinc-50 disabled:text-zinc-500 disabled:cursor-not-allowed"
                 >
                   <option value="">Sélectionner une agence</option>
-                  {agencies.map((agency) => (
+                  {availableAgencies.map((agency) => (
                     <option key={agency.id} value={agency.id}>
                       {agency.name}
                     </option>
                   ))}
                 </select>
+                {currentUserAgencyId && (
+                  <p className="text-xs text-[#6B7280]">
+                    Vous ne pouvez ajouter des utilisateurs que pour votre propre agence
+                  </p>
+                )}
               </div>
             </div>
             {formData.role === "customer" && (

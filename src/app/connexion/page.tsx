@@ -21,7 +21,14 @@ export default function Connexion() {
     try {
       const credential = await signInWithEmail(email, password);
       const role = await getUserRole(credential.user.uid);
-      router.push("/admin");
+      const roleLower = role?.toLowerCase();
+      if (roleLower === "area manager") {
+        router.push("/zone_manager");
+      } else if (roleLower === "customer") {
+        router.push("/customer/products");
+      } else {
+        router.push("/admin");
+      }
     } catch (caughtError) {
       const message =
         caughtError instanceof Error

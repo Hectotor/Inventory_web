@@ -29,23 +29,26 @@ type UserProfile = {
   role: string;
   company_id: string;
   is_active: boolean;
+  agencies_id?: string;
 };
 
-export default function AdminProfile() {
+type Agency = {
+  id: string;
+  name: string;
+  street_address: string;
+  postal_code: string;
+  city: string;
+  country: string;
+};
+
+export default function ZoneManagerProfile() {
   const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [agency, setAgency] = useState<Agency | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingCompany, setIsSavingCompany] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [companyNotification, setCompanyNotification] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
-  const [profileNotification, setProfileNotification] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
   const [companyForm, setCompanyForm] = useState({
     name: "",
     phone: "",
@@ -54,6 +57,7 @@ export default function AdminProfile() {
     city: "",
     country: "",
     logo_url: "",
+    siren: "",
     head_office_siret: "",
     vat_number: "",
     legal_form: "",
@@ -119,6 +123,24 @@ export default function AdminProfile() {
       } else {
         setCompany(null);
       }
+
+      // Charger l'agence du zone_manager
+      if (userData.agencies_id) {
+        const agencySnapshot = await getDoc(
+          doc(db, "agencies", userData.agencies_id),
+        );
+        if (agencySnapshot.exists()) {
+          const agencyData = agencySnapshot.data() as Agency;
+          setAgency({
+            id: agencySnapshot.id,
+            ...agencyData,
+          });
+        } else {
+          setAgency(null);
+        }
+      } else {
+        setAgency(null);
+      }
       setIsLoading(false);
     });
 
@@ -136,55 +158,37 @@ export default function AdminProfile() {
       return;
     }
     setIsSavingCompany(true);
-    try {
-      const capitalValue = companyForm.capital_eur.trim();
-      await updateDoc(doc(db, "companies", user.company_id), {
-        name: companyForm.name.trim(),
-        phone: companyForm.phone.trim(),
-        street: companyForm.street.trim(),
-        postal_code: companyForm.postal_code.trim(),
-        city: companyForm.city.trim(),
-        country: companyForm.country.trim(),
-        head_office_siret: companyForm.head_office_siret.trim(),
-        vat_number: companyForm.vat_number.trim(),
-        legal_form: companyForm.legal_form.trim(),
-        capital_eur: capitalValue ? Number(capitalValue) : 0,
-      });
-      setCompany((prev) =>
-        prev
-          ? {
-              ...prev,
-              name: companyForm.name.trim(),
-              phone: companyForm.phone.trim(),
-              street: companyForm.street.trim(),
-              postal_code: companyForm.postal_code.trim(),
-              city: companyForm.city.trim(),
-              country: companyForm.country.trim(),
-              head_office_siret: companyForm.head_office_siret.trim(),
-              vat_number: companyForm.vat_number.trim(),
-              legal_form: companyForm.legal_form.trim(),
-              capital_eur: capitalValue ? Number(capitalValue) : 0,
-            }
-          : prev,
-      );
-      setCompanyNotification({
-        message: "Informations de l'entreprise mises à jour avec succès",
-        type: "success",
-      });
-      setTimeout(() => {
-        setCompanyNotification(null);
-      }, 3000);
-    } catch (error) {
-      setCompanyNotification({
-        message: "Erreur lors de la mise à jour des informations",
-        type: "error",
-      });
-      setTimeout(() => {
-        setCompanyNotification(null);
-      }, 3000);
-    } finally {
-      setIsSavingCompany(false);
-    }
+    const capitalValue = companyForm.capital_eur.trim();
+    await updateDoc(doc(db, "companies", user.company_id), {
+      name: companyForm.name.trim(),
+      phone: companyForm.phone.trim(),
+      street: companyForm.street.trim(),
+      postal_code: companyForm.postal_code.trim(),
+      city: companyForm.city.trim(),
+      country: companyForm.country.trim(),
+      head_office_siret: companyForm.head_office_siret.trim(),
+      vat_number: companyForm.vat_number.trim(),
+      legal_form: companyForm.legal_form.trim(),
+      capital_eur: capitalValue ? Number(capitalValue) : 0,
+    });
+    setCompany((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: companyForm.name.trim(),
+            phone: companyForm.phone.trim(),
+            street: companyForm.street.trim(),
+            postal_code: companyForm.postal_code.trim(),
+            city: companyForm.city.trim(),
+            country: companyForm.country.trim(),
+            head_office_siret: companyForm.head_office_siret.trim(),
+            vat_number: companyForm.vat_number.trim(),
+            legal_form: companyForm.legal_form.trim(),
+            capital_eur: capitalValue ? Number(capitalValue) : 0,
+          }
+        : prev,
+    );
+    setIsSavingCompany(false);
   };
 
   const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -211,40 +215,22 @@ export default function AdminProfile() {
       return;
     }
     setIsSavingProfile(true);
-    try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        first_name: profileForm.first_name.trim(),
-        last_name: profileForm.last_name.trim(),
-        email: profileForm.email.trim(),
-      });
-      setUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              first_name: profileForm.first_name.trim(),
-              last_name: profileForm.last_name.trim(),
-              email: profileForm.email.trim(),
-            }
-          : prev,
-      );
-      setProfileNotification({
-        message: "Profil mis à jour avec succès",
-        type: "success",
-      });
-      setTimeout(() => {
-        setProfileNotification(null);
-      }, 3000);
-    } catch (error) {
-      setProfileNotification({
-        message: "Erreur lors de la mise à jour du profil",
-        type: "error",
-      });
-      setTimeout(() => {
-        setProfileNotification(null);
-      }, 3000);
-    } finally {
-      setIsSavingProfile(false);
-    }
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      first_name: profileForm.first_name.trim(),
+      last_name: profileForm.last_name.trim(),
+      email: profileForm.email.trim(),
+    });
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            first_name: profileForm.first_name.trim(),
+            last_name: profileForm.last_name.trim(),
+            email: profileForm.email.trim(),
+          }
+        : prev,
+    );
+    setIsSavingProfile(false);
   };
 
   return (
@@ -262,33 +248,14 @@ export default function AdminProfile() {
               <h2 className="text-xl font-semibold">Entreprise</h2>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-3">
-            {companyNotification && (
-              <div
-                className={`rounded-2xl px-4 py-2 text-sm font-medium transition-all ${
-                  companyNotification.type === "success"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-                style={{ animation: "slideIn 0.3s ease-out" }}
-              >
-                <div className="flex items-center gap-2">
-                  <span>
-                    {companyNotification.type === "success" ? "✓" : "✗"}
-                  </span>
-                  <p>{companyNotification.message}</p>
-                </div>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={handleCompanySave}
-              className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isLoading || isSavingCompany}
-            >
-              {isSavingCompany ? "Enregistrement..." : "Enregistrer"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleCompanySave}
+            className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={isLoading || isSavingCompany}
+          >
+            {isSavingCompany ? "Enregistrement..." : "Enregistrer"}
+          </button>
         </div>
         <div className="mt-6 grid gap-4 text-sm text-[#6B7280] md:grid-cols-2 xl:grid-cols-3">
           <div className="flex items-center gap-4 rounded-2xl border border-zinc-100 bg-gradient-to-r from-[#F8FAFC] to-white px-4 py-3">
@@ -356,7 +323,7 @@ export default function AdminProfile() {
               }
               className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
               disabled={isLoading}
-              placeholder="Ex: 123 456 789 01234"
+              placeholder="815 400 460 00011"
             />
           </div>
           <div className="grid gap-2">
@@ -373,7 +340,7 @@ export default function AdminProfile() {
               }
               className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
               disabled={isLoading}
-              placeholder="Ex: FR12345678901"
+              placeholder="FR05815400460"
             />
           </div>
           <div className="grid gap-2">
@@ -390,7 +357,7 @@ export default function AdminProfile() {
               }
               className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
               disabled={isLoading}
-              placeholder="Ex: SAS, SARL, SA..."
+              placeholder="SAS (simplified joint-stock company)"
             />
           </div>
           <div className="grid gap-2">
@@ -407,7 +374,7 @@ export default function AdminProfile() {
               }
               className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
               disabled={isLoading}
-              placeholder="Ex: 10000.00"
+              placeholder="5000.00"
               type="number"
               step="0.01"
               min="0"
@@ -491,46 +458,27 @@ export default function AdminProfile() {
       </section>
 
       <section className="group rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur transition hover:-translate-y-0.5 hover:shadow-[0_30px_90px_rgba(15,23,42,0.12)]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#111827] text-lg text-white">
-                👤
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
-                  Section profil
-                </p>
-                <h2 className="text-xl font-semibold">Profil</h2>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3">
-              {profileNotification && (
-                <div
-                  className={`rounded-2xl px-4 py-2 text-sm font-medium transition-all ${
-                    profileNotification.type === "success"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                  style={{ animation: "slideIn 0.3s ease-out" }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {profileNotification.type === "success" ? "✓" : "✗"}
-                    </span>
-                    <p>{profileNotification.message}</p>
-                  </div>
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={handleProfileSave}
-                className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={isLoading || isSavingProfile}
-              >
-                {isSavingProfile ? "Enregistrement..." : "Mettre à jour"}
-              </button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#111827] text-lg text-white">
+              👤
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
+                Section profil
+              </p>
+              <h2 className="text-xl font-semibold">Profil</h2>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handleProfileSave}
+            className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={isLoading || isSavingProfile}
+          >
+            {isSavingProfile ? "Enregistrement..." : "Mettre à jour"}
+          </button>
+        </div>
         <div className="mt-6 grid gap-4 text-sm text-[#6B7280]">
           <div className="grid gap-2">
             <label className="text-xs uppercase tracking-[0.2em]">
@@ -594,6 +542,26 @@ export default function AdminProfile() {
                   : "—"}
             </span>
           </div>
+          {agency && (
+            <div className="rounded-2xl border border-zinc-100 bg-[#F8FAFC] px-4 py-3">
+              <div className="mb-2 text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+                Agence
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-[#111827]">{agency.name}</p>
+                <p className="text-sm text-[#6B7280]">
+                  {[
+                    agency.street_address,
+                    agency.postal_code,
+                    agency.city,
+                    agency.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

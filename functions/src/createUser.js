@@ -20,6 +20,7 @@ if (!admin.apps.length) {
  * @param {boolean} [userData.is_active=true] - Statut actif/inactif
  * @param {string} [userData.street_address] - Adresse (optionnel, pour les clients)
  * @param {string} [userData.postal_code] - Code postal (optionnel, pour les clients)
+ * @param {string} [userData.city] - Ville (optionnel, pour les clients)
  * @param {string} [userData.country] - Pays (optionnel, pour les clients)
  * @returns {Promise<Object>} - { userId, email, success: true }
  */
@@ -59,13 +60,19 @@ async function createUser(userData) {
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    // Ajouter les champs d'adresse uniquement pour les clients
+    // Ajouter les champs spécifiques uniquement pour les clients
     if (userData.role === "customer") {
+      if (userData.company_name) {
+        userDoc.company_name = userData.company_name;
+      }
       if (userData.street_address) {
         userDoc.street_address = userData.street_address;
       }
       if (userData.postal_code) {
         userDoc.postal_code = userData.postal_code;
+      }
+      if (userData.city) {
+        userDoc.city = userData.city;
       }
       if (userData.country) {
         userDoc.country = userData.country;
@@ -192,13 +199,19 @@ const createTeamMember = functions
       is_active: data.is_active,
     };
 
-    // Ajouter les champs d'adresse uniquement pour les clients
+    // Ajouter les champs spécifiques uniquement pour les clients
     if (data.role === "customer") {
+      if (data.company_name) {
+        userData.company_name = data.company_name;
+      }
       if (data.street_address) {
         userData.street_address = data.street_address;
       }
       if (data.postal_code) {
         userData.postal_code = data.postal_code;
+      }
+      if (data.city) {
+        userData.city = data.city;
       }
       if (data.country) {
         userData.country = data.country;

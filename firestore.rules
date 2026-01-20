@@ -17,9 +17,19 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
+    // Helper function to get user's agency_id
+    function getUserAgencyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agencies_id;
+    }
+    
     // Helper function to check if user is admin
     function isAdmin() {
       return isAuthenticated() && getUserRole() == "admin";
+    }
+    
+    // Helper function to check if user is area manager
+    function isAreaManager() {
+      return isAuthenticated() && getUserRole() == "area manager";
     }
     
     // Helper function to check if user can manage data (admin or area manager)
@@ -63,16 +73,26 @@ service cloud.firestore {
       allow read, update: if isAuthenticated() && request.auth.uid == userId;
       
       // Création : admin, area manager, sales et warehouse peuvent créer des utilisateurs pour leur entreprise
+      // Seul un admin peut créer un utilisateur avec le rôle "admin"
+      // Les zone managers ne peuvent créer des utilisateurs que pour leur propre agence
       allow create: if canCreateUsers() && 
-                       request.resource.data.company_id == getUserCompanyId();
+                       request.resource.data.company_id == getUserCompanyId() &&
+                       (request.resource.data.role != "admin" || isAdmin()) &&
+                       (!isAreaManager() || getUserAgencyId() == request.resource.data.agencies_id);
       
       // Lecture : les utilisateurs peuvent lire les membres de leur entreprise
       allow read: if isSameCompany(resource.data.company_id);
       
       // Modification : admin, area manager, sales et warehouse peuvent modifier d'autres utilisateurs de leur entreprise
+      // Seul un admin peut mettre un utilisateur en admin ou modifier un utilisateur admin
+      // Les zone managers ne peuvent modifier que les utilisateurs de leur propre agence
       allow update: if canUpdateUsers() && 
                       resource.data.company_id == getUserCompanyId() &&
-                      request.auth.uid != userId; // Ne peut pas se modifier soi-même (utilise la règle ci-dessus)
+                      request.auth.uid != userId && // Ne peut pas se modifier soi-même (utilise la règle ci-dessus)
+                      (request.resource.data.role != "admin" || isAdmin()) && // Seul un admin peut mettre le rôle "admin"
+                      (resource.data.role != "admin" || isAdmin()) && // Seul un admin peut modifier un utilisateur admin
+                      (!isAreaManager() || getUserAgencyId() == resource.data.agencies_id) && // Zone manager ne peut modifier que les utilisateurs de son agence
+                      (!isAreaManager() || getUserAgencyId() == request.resource.data.agencies_id); // Zone manager ne peut pas changer l'agence de l'utilisateur
       
       // Suppression : admin et area manager peuvent supprimer d'autres utilisateurs de leur entreprise
       allow delete: if canDeleteUsers() && 
@@ -115,6 +135,30 @@ service cloud.firestore {
       // Modification/Suppression : admins et area managers peuvent modifier/supprimer
       allow update, delete: if canManageData() && 
                               resource.data.company_id == getUserCompanyId();
+    }
+    
+    // Orders collection
+    match /orders/{orderId} {
+      // Lecture : les clients peuvent lire leurs propres commandes
+      // Les admins et area managers peuvent lire toutes les commandes de leur entreprise
+      allow read: if isAuthenticated() && (
+        (getUserRole() == "customer" && resource.data.customer_id == request.auth.uid) ||
+        (canManageData() && resource.data.company_id == getUserCompanyId())
+      );
+      
+      // Création : les clients peuvent créer des commandes pour leur entreprise
+      allow create: if isAuthenticated() && 
+                       getUserRole() == "customer" &&
+                       request.resource.data.customer_id == request.auth.uid &&
+                       request.resource.data.company_id == getUserCompanyId();
+      
+      // Modification : admins et area managers peuvent modifier les commandes de leur entreprise
+      allow update: if canManageData() && 
+                      resource.data.company_id == getUserCompanyId();
+      
+      // Suppression : admins et area managers peuvent supprimer les commandes de leur entreprise
+      allow delete: if canManageData() && 
+                      resource.data.company_id == getUserCompanyId();
     }
     
   }
