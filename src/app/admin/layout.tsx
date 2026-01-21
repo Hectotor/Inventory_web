@@ -170,7 +170,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       
       {/* Mobile AppBar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-md border-b border-white/60 shadow-sm">
-        <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
           {companyLogo ? (
             <div className="h-10 w-10 overflow-hidden rounded-xl border border-zinc-200 bg-white flex items-center justify-center">
               <img
@@ -181,10 +181,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#111827] to-[#334155] text-sm font-semibold text-white shadow-md">
-              🚚
-            </div>
+                🚚
+              </div>
           )}
-          <div>
+              <div>
             {isLoadingCompanyName ? (
               <div className="space-y-1.5">
                 <div className="h-2 w-24 rounded-full bg-slate-200/80 animate-pulse" />
@@ -235,7 +235,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="h-full overflow-y-auto rounded-r-[32px] border-r border-white/60 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
           <div className="hidden lg:block">
             <SidebarContent />
-          </div>
+            </div>
           <div className="lg:hidden">
             <nav className="space-y-2">
               {menuItems.map((item) => (

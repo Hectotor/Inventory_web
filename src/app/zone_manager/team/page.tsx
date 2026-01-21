@@ -170,22 +170,22 @@ export default function ZoneManagerTeam() {
     const membersSnapshot = await getDocs(queryConstraint);
     const membersList = membersSnapshot.docs
       .map((doc) => ({
-        id: doc.id,
-        firstname: doc.data().first_name || "",
-        lastname: doc.data().last_name || "",
-        email: doc.data().email || "",
-        phone: doc.data().phone || "",
-        role: (doc.data().role?.toLowerCase() || "sales") as TeamMember["role"],
-        is_active: doc.data().is_active ?? true,
-        agencies_id: doc.data().agencies_id || "",
-        company_id: doc.data().company_id || "",
-        street_address: doc.data().street_address || "",
-        postal_code: doc.data().postal_code || "",
+      id: doc.id,
+      firstname: doc.data().first_name || "",
+      lastname: doc.data().last_name || "",
+      email: doc.data().email || "",
+      phone: doc.data().phone || "",
+      role: (doc.data().role?.toLowerCase() || "sales") as TeamMember["role"],
+      is_active: doc.data().is_active ?? true,
+      agencies_id: doc.data().agencies_id || "",
+      company_id: doc.data().company_id || "",
+      street_address: doc.data().street_address || "",
+      postal_code: doc.data().postal_code || "",
         company_name: doc.data().company_name || "",
         city: doc.data().city || "",
-        country: doc.data().country || "",
-        created_at: doc.data().created_at,
-        updated_at: doc.data().updated_at,
+      country: doc.data().country || "",
+      created_at: doc.data().created_at,
+      updated_at: doc.data().updated_at,
       }))
       .filter((member) => member.role !== "admin") as TeamMember[];
     setTeamMembers(membersList);
@@ -804,24 +804,24 @@ export default function ZoneManagerTeam() {
                       placeholder="Ville"
                     />
                   </div>
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                    Pays *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.country}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+                      Pays *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.country}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
                         country: e.target.value.toUpperCase(),
-                      }))
-                    }
-                    required
-                    className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
-                    placeholder="Pays"
-                  />
+                        }))
+                      }
+                      required
+                      className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                      placeholder="Pays"
+                    />
                 </div>
               </div>
             )}

@@ -216,18 +216,18 @@ export default function ZoneManagerProfile() {
       }
 
       // Uploader le nouveau logo
-      const logoRef = ref(storage, `companies/${user.company_id}/branding/logo`);
-      await uploadBytes(logoRef, file);
-      const logoUrl = await getDownloadURL(logoRef);
-      await updateDoc(doc(db, "companies", user.company_id), {
-        logo_url: logoUrl,
-      });
-      setCompanyForm((prev) => ({ ...prev, logo_url: logoUrl }));
-      setCompany((prev) => (prev ? { ...prev, logo_url: logoUrl } : prev));
+    const logoRef = ref(storage, `companies/${user.company_id}/branding/logo`);
+    await uploadBytes(logoRef, file);
+    const logoUrl = await getDownloadURL(logoRef);
+    await updateDoc(doc(db, "companies", user.company_id), {
+      logo_url: logoUrl,
+    });
+    setCompanyForm((prev) => ({ ...prev, logo_url: logoUrl }));
+    setCompany((prev) => (prev ? { ...prev, logo_url: logoUrl } : prev));
     } catch (error) {
       console.error("Error uploading logo:", error);
     } finally {
-      setIsUploadingLogo(false);
+    setIsUploadingLogo(false);
     }
   };
 

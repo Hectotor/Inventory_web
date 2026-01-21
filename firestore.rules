@@ -9,7 +9,9 @@ service cloud.firestore {
     
     // Helper function to get user's company_id
     function getUserCompanyId() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.company_id;
+      return isAuthenticated() ? 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.company_id : 
+        null;
     }
     
     // Helper function to get user's role
@@ -139,27 +141,87 @@ service cloud.firestore {
     
     // Orders collection
     match /orders/{orderId} {
-      // Lecture : les clients peuvent lire leurs propres commandes
-      // Tous les utilisateurs de l'entreprise peuvent lire les commandes de leur entreprise
-      allow read: if isAuthenticated() && (
-        (getUserRole() == "customer" && resource.data.customer_id == request.auth.uid) ||
-        (resource.data.company_id == getUserCompanyId())
-      );
+      // Lecture : tous les utilisateurs authentifiés de l'entreprise peuvent lire les commandes de leur entreprise
+      // Les clients peuvent aussi lire leurs propres commandes
+      allow read: if isAuthenticated() && 
+                     (
+                       // Client lisant ses propres commandes
+                       (getUserRole() == "customer" && resource.data.customer_id == request.auth.uid) ||
+                       // Utilisateur de l'entreprise lisant les commandes de son entreprise
+                       (getUserCompanyId() != null && resource.data.company_id == getUserCompanyId())
+                     );
       
-      // Création : les clients peuvent créer des commandes pour leur entreprise
+      // Création : les clients peuvent créer leurs propres commandes
+      // Les admins, area managers et commerciaux peuvent créer des commandes au nom des clients
       allow create: if isAuthenticated() && 
-                       getUserRole() == "customer" &&
-                       request.resource.data.customer_id == request.auth.uid &&
-                       request.resource.data.company_id == getUserCompanyId();
+                       request.resource.data.company_id == getUserCompanyId() &&
+                       (
+                         // Client créant sa propre commande
+                         (getUserRole() == "customer" && 
+                          request.resource.data.customer_id == request.auth.uid &&
+                          request.resource.data.created_by == request.auth.uid) ||
+                         // Admin, area manager ou commercial créant une commande au nom d'un client
+                         (getUserRole() == "admin" || 
+                          getUserRole() == "area manager" || 
+                          getUserRole() == "sales") &&
+                         request.resource.data.customer_id is string &&
+                         request.resource.data.created_by == request.auth.uid
+                       );
       
-      // Modification : tous les utilisateurs sauf les livreurs peuvent modifier les commandes de leur entreprise
+      // Modification : tous les utilisateurs peuvent modifier les commandes de leur entreprise
+      // Les livreurs peuvent modifier uniquement le statut
       allow update: if isAuthenticated() && 
-                      getUserRole() != "driver" &&
-                      resource.data.company_id == getUserCompanyId();
+                      resource.data.company_id == getUserCompanyId() &&
+                      (
+                        getUserRole() != "driver" ||
+                        // Les livreurs ne peuvent modifier que le statut et les autres champs doivent rester identiques
+                        (getUserRole() == "driver" && 
+                         request.resource.data.status is string &&
+                         request.resource.data.company_id == resource.data.company_id &&
+                         request.resource.data.customer_id == resource.data.customer_id &&
+                         request.resource.data.sales_id == resource.data.sales_id &&
+                         request.resource.data.created_by == resource.data.created_by &&
+                         request.resource.data.created_at == resource.data.created_at)
+                      );
       
       // Suppression : admins et area managers peuvent supprimer les commandes de leur entreprise
       allow delete: if canManageData() && 
                       resource.data.company_id == getUserCompanyId();
+    }
+    
+    // Order items collection
+    match /order_items/{orderItemId} {
+      // Lecture : tous les utilisateurs authentifiés de l'entreprise peuvent lire les order_items de leur entreprise
+      allow read: if isAuthenticated() && 
+                     getUserCompanyId() != null &&
+                     exists(/databases/$(database)/documents/orders/$(resource.data.order_id)) &&
+                     get(/databases/$(database)/documents/orders/$(resource.data.order_id)).data.company_id == getUserCompanyId();
+      
+      // Création : les clients peuvent créer des order_items pour leurs commandes
+      // Les admins, area managers et commerciaux peuvent créer des order_items pour les commandes de leur entreprise
+      allow create: if isAuthenticated() && 
+                       exists(/databases/$(database)/documents/orders/$(request.resource.data.order_id)) &&
+                       get(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.company_id == getUserCompanyId() &&
+                       (
+                         // Client créant des order_items pour sa propre commande
+                         (getUserRole() == "customer" && 
+                          get(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.customer_id == request.auth.uid) ||
+                         // Admin, area manager ou commercial créant des order_items pour une commande de leur entreprise
+                         (getUserRole() == "admin" || 
+                          getUserRole() == "area manager" || 
+                          getUserRole() == "sales")
+                       );
+      
+      // Modification : tous les utilisateurs sauf les livreurs peuvent modifier les order_items des commandes de leur entreprise
+      allow update: if isAuthenticated() && 
+                      getUserRole() != "driver" &&
+                      exists(/databases/$(database)/documents/orders/$(resource.data.order_id)) &&
+                      get(/databases/$(database)/documents/orders/$(resource.data.order_id)).data.company_id == getUserCompanyId();
+      
+      // Suppression : admins et area managers peuvent supprimer les order_items des commandes de leur entreprise
+      allow delete: if canManageData() && 
+                      exists(/databases/$(database)/documents/orders/$(resource.data.order_id)) &&
+                      get(/databases/$(database)/documents/orders/$(resource.data.order_id)).data.company_id == getUserCompanyId();
     }
     
     // Warehouses collection

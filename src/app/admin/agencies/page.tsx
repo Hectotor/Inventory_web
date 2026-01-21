@@ -57,6 +57,8 @@ export default function AdminAgencies() {
     type: "success" | "error";
     agencyId: string;
   } | null>(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     street_address: "",
@@ -164,24 +166,23 @@ export default function AdminAgencies() {
       if (editingAgency) {
         await updateDoc(doc(db, "agencies", editingAgency.id), {
           ...agencyData,
+          agencies_id: editingAgency.id,
           updated_at: serverTimestamp(),
         });
-        setNotification({
-          message: `"${agencyData.name}" a été modifiée`,
-          type: "success",
-          agencyId: editingAgency.id,
-        });
+        setSuccessMessage("Agence modifiée avec succès");
+        setShowSuccessPopup(true);
       } else {
         const docRef = await addDoc(collection(db, "agencies"), {
           ...agencyData,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
         });
-        setNotification({
-          message: `"${agencyData.name}" a été ajoutée`,
-          type: "success",
-          agencyId: docRef.id,
+        // Ajouter agencies_id après création
+        await updateDoc(docRef, {
+          agencies_id: docRef.id,
         });
+        setSuccessMessage("Agence créée avec succès");
+        setShowSuccessPopup(true);
       }
 
       await Promise.all([
@@ -189,10 +190,6 @@ export default function AdminAgencies() {
         loadWarehouses(companyId),
       ]);
       resetForm();
-
-      setTimeout(() => {
-        setNotification(null);
-      }, 3000);
     } catch (error) {
       console.error("Error saving agency:", error);
       setNotification({
@@ -315,6 +312,7 @@ export default function AdminAgencies() {
       if (editingWarehouse) {
         await updateDoc(doc(db, "warehouses", editingWarehouse.id), {
           ...warehouseData,
+          warehouses_id: editingWarehouse.id,
           updated_at: serverTimestamp(),
         });
         setNotification({
@@ -327,6 +325,9 @@ export default function AdminAgencies() {
           ...warehouseData,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
+        });
+        await updateDoc(docRef, {
+          warehouses_id: docRef.id,
         });
         setNotification({
           message: `"${warehouseData.name}" a été ajouté`,
@@ -403,6 +404,37 @@ export default function AdminAgencies() {
 
   return (
     <div className="space-y-6">
+      {/* Popup de succès */}
+      {showSuccessPopup && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-gray-500/30 backdrop-blur-sm"
+            onClick={() => setShowSuccessPopup(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                  <span className="text-3xl text-green-600">✓</span>
+                </div>
+                <h2 className="text-2xl font-semibold text-[#111827] mb-2">
+                  Succès
+                </h2>
+                <p className="text-base text-[#6B7280] mb-6">
+                  {successMessage}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="w-full inline-flex h-11 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       {showAddForm && (
         <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
           <div className="flex items-center justify-between mb-6">
@@ -643,7 +675,7 @@ export default function AdminAgencies() {
 
                   {/* Warehouses */}
                   <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <h4 className="text-xs font-semibold text-[#6B7280] uppercase tracking-[0.1em]">
                         Entrepôts ({warehouses[agency.id]?.length || 0})
                       </h4>
@@ -653,9 +685,9 @@ export default function AdminAgencies() {
                           resetWarehouseForm();
                           setShowWarehouseForm(agency.id);
                         }}
-                        className="text-xs text-[#111827] hover:text-[#6B7280] font-medium"
+                        className="inline-flex items-center justify-center rounded-lg bg-[#111827] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-black"
                       >
-                        + Ajouter
+                        + Ajouter un entrepôt
                       </button>
                     </div>
                     {warehouses[agency.id] && warehouses[agency.id].length > 0 ? (
@@ -699,11 +731,19 @@ export default function AdminAgencies() {
 
                   {/* Formulaire Warehouse */}
                   {showWarehouseForm === agency.id && (
-                    <div className="mb-4 p-3 rounded-xl border border-zinc-200 bg-white">
+                    <div className="mb-4 p-4 rounded-xl border-2 border-[#111827] bg-white shadow-lg">
+                      <div className="mb-3">
+                        <h5 className="text-sm font-semibold text-[#111827] mb-1">
+                          {editingWarehouse ? "Modifier l'entrepôt" : "Nouvel entrepôt"}
+                        </h5>
+                        <p className="text-xs text-[#6B7280]">
+                          {editingWarehouse ? "Modifiez les informations de l'entrepôt" : "Ajoutez un nouvel entrepôt à cette agence"}
+                        </p>
+                      </div>
                       <form onSubmit={(e) => handleWarehouseSubmit(e, agency.id)} className="space-y-3">
                         <div className="grid gap-2">
-                          <label className="text-xs uppercase tracking-[0.1em] text-[#6B7280]">
-                            Nom de l'entrepôt
+                          <label className="text-xs font-semibold uppercase tracking-[0.1em] text-[#111827]">
+                            Nom de l'entrepôt *
                           </label>
                           <input
                             type="text"

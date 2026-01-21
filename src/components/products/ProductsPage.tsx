@@ -56,6 +56,9 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
     type: "success" | "error";
     productId: string;
   } | null>(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     sub_name: "",
@@ -228,14 +231,23 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
       if (editingProduct) {
         await updateDoc(doc(db, "products", editingProduct.id), {
           ...productData,
+          products_id: editingProduct.id,
           updated_at: serverTimestamp(),
         });
+        setSuccessMessage("Produit modifié avec succès");
+        setShowSuccessPopup(true);
       } else {
-        await addDoc(collection(db, "products"), {
+        const productRef = await addDoc(collection(db, "products"), {
           ...productData,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
         });
+        // Ajouter products_id après création
+        await updateDoc(productRef, {
+          products_id: productRef.id,
+        });
+        setSuccessMessage("Produit créé avec succès");
+        setShowSuccessPopup(true);
       }
 
       await loadProducts(companyId);
@@ -405,6 +417,37 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
 
   return (
     <div className="space-y-6">
+      {/* Popup de succès */}
+      {showSuccessPopup && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-gray-500/30 backdrop-blur-sm"
+            onClick={() => setShowSuccessPopup(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                  <span className="text-3xl text-green-600">✓</span>
+                </div>
+                <h2 className="text-2xl font-semibold text-[#111827] mb-2">
+                  Succès
+                </h2>
+                <p className="text-base text-[#6B7280] mb-6">
+                  {successMessage}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="w-full inline-flex h-11 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       {showAddForm && canManageProducts && (
         <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
           <div className="flex items-center justify-between mb-6">
@@ -674,6 +717,54 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
             )}
           </div>
         </div>
+        {/* Barre de recherche */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 rounded-2xl border border-zinc-200 bg-white px-4 pl-11 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
+              🔍
+            </span>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#111827]"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Barre de recherche */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 rounded-2xl border border-zinc-200 bg-white px-4 pl-11 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
+              🔍
+            </span>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#111827]"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         {products.length === 0 ? (
           <div className="text-center py-16 text-[#6B7280]">
             <div className="text-4xl mb-4">📦</div>
@@ -684,7 +775,18 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((product) => {
+            {products
+              .filter((product) => {
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase();
+                return (
+                  product.name.toLowerCase().includes(query) ||
+                  product.sub_name?.toLowerCase().includes(query) ||
+                  product.barcode.toLowerCase().includes(query) ||
+                  product.description?.toLowerCase().includes(query)
+                );
+              })
+              .map((product) => {
               const priceTTC =
                 product.price_ht * (1 + product.tva / 100);
               return (

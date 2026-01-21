@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -9,7 +10,7 @@ import {
   doc,
   query,
   where,
-  addDoc,
+  setDoc,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -38,6 +39,7 @@ type CartItem = {
 };
 
 export default function CustomerProducts() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +47,9 @@ export default function CustomerProducts() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [showOrderSummary, setShowOrderSummary] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
@@ -81,6 +85,25 @@ export default function CustomerProducts() {
 
       setCompanyId(userData.company_id);
       setCustomerId(currentUser.uid);
+      
+      // Charger le panier depuis localStorage
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        try {
+          const cartData = JSON.parse(savedCart);
+          // Filtrer les éléments invalides
+          const validCart = cartData.filter((item: any) => item && item.product && item.product.id);
+          setCart(validCart);
+          // Sauvegarder le panier nettoyé
+          if (validCart.length !== cartData.length) {
+            localStorage.setItem("cart", JSON.stringify(validCart));
+          }
+        } catch (error) {
+          console.error("Error loading cart from localStorage:", error);
+          localStorage.removeItem("cart");
+        }
+      }
+      
       await loadProducts(userData.company_id);
       setIsLoading(false);
     });
@@ -106,17 +129,20 @@ export default function CustomerProducts() {
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const existingItem = prev.find((item) => item.product.id === product.id);
+      let newCart;
       if (existingItem) {
-        return prev.map((item) =>
+        newCart = prev.map((item) =>
           item.product.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
+      } else {
+        newCart = [...prev, { product, quantity: 1 }];
       }
-      return [...prev, { product, quantity: 1 }];
+      // Sauvegarder dans localStorage
+      localStorage.setItem("cart", JSON.stringify(newCart));
+      return newCart;
     });
-    setAddedProductId(product.id);
-    setTimeout(() => setAddedProductId(null), 2000);
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -124,15 +150,21 @@ export default function CustomerProducts() {
       removeFromCart(productId);
       return;
     }
-    setCart((prev) =>
-      prev.map((item) =>
+    setCart((prev) => {
+      const newCart = prev.map((item) =>
         item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
+      );
+      localStorage.setItem("cart", JSON.stringify(newCart));
+      return newCart;
+    });
   };
 
   const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    setCart((prev) => {
+      const newCart = prev.filter((item) => item.product.id !== productId);
+      localStorage.setItem("cart", JSON.stringify(newCart));
+      return newCart;
+    });
   };
 
   const getCartTotal = () => {
@@ -153,6 +185,10 @@ export default function CustomerProducts() {
     }, 0);
   };
 
+  const getCartItemCount = () => {
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
   const handlePlaceOrderClick = () => {
     if (!companyId || !customerId || cart.length === 0) return;
     setShowOrderSummary(true);
@@ -164,39 +200,35 @@ export default function CustomerProducts() {
     setShowOrderSummary(false);
     setIsPlacingOrder(true);
     try {
-      const orderItems = cart.map((item) => ({
-        product_id: item.product.id,
-        product_name: item.product.name,
-        quantity: item.quantity,
-        price_ht: item.product.price_ht,
-        tva: item.product.tva,
-        total_ht: item.product.price_ht * item.quantity,
-        total_ttc: item.product.price_ht * (1 + item.product.tva / 100) * item.quantity,
-      }));
-
-      const total_ht = cart.reduce(
-        (sum, item) => sum + item.product.price_ht * item.quantity,
-        0
-      );
-      const total_ttc = getCartTotal();
-
-      await addDoc(collection(db, "orders"), {
-        customer_id: customerId,
+      // Créer une référence de document avec un ID généré
+      const orderRef = doc(collection(db, "orders"));
+      
+      // Créer le document order avec orders_id directement
+      await setDoc(orderRef, {
+        orders_id: orderRef.id,
         company_id: companyId,
-        items: orderItems,
-        total_ht,
-        total_ttc,
-        status: "pending",
+        customer_id: customerId,
+        sales_id: null, // nullable
+        created_by: customerId,
+        status: "PREPARATION",
         created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
       });
+
+      // Créer les documents order_items avec order_items_id directement
+      const orderItemsPromises = cart.map(async (item) => {
+        const orderItemRef = doc(collection(db, "order_items"));
+        await setDoc(orderItemRef, {
+          order_items_id: orderItemRef.id,
+          order_id: orderRef.id,
+          product_id: item.product.id,
+          quantity: item.quantity,
+        });
+      });
+
+      await Promise.all(orderItemsPromises);
 
       setCart([]);
-      setNotification({
-        message: "Commande passée avec succès !",
-        type: "success",
-      });
-      setTimeout(() => setNotification(null), 3000);
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("Erreur lors de la création de la commande:", error);
       setNotification({
@@ -222,21 +254,35 @@ export default function CustomerProducts() {
 
   return (
     <div className="space-y-6">
+      {/* Icône panier en haut à droite */}
       {cart.length > 0 && (
-        <div className="flex items-center justify-end gap-4">
-          <div className="text-right">
-            <p className="text-xs text-[#6B7280]">Total panier</p>
-            <p className="text-lg font-semibold">
-              {getCartTotalHT().toFixed(2)} € HT
-            </p>
-          </div>
+        <div className="fixed top-24 right-6 z-40 lg:block hidden">
           <button
             type="button"
-            onClick={handlePlaceOrderClick}
-            disabled={isPlacingOrder}
-            className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={() => router.push("/customer/cart")}
+            className="relative inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#111827] text-white shadow-lg hover:bg-black transition-all hover:scale-110"
+            aria-label="Voir le panier"
           >
-            {isPlacingOrder ? "En cours..." : "Passer la commande"}
+            <span className="text-2xl">🛒</span>
+            <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+              {getCartItemCount()}
+            </span>
+          </button>
+        </div>
+      )}
+      {/* Icône panier mobile */}
+      {cart.length > 0 && (
+        <div className="fixed top-20 right-4 z-40 lg:hidden">
+          <button
+            type="button"
+            onClick={() => router.push("/customer/cart")}
+            className="relative inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#111827] text-white shadow-lg hover:bg-black transition-all"
+            aria-label="Voir le panier"
+          >
+            <span className="text-xl">🛒</span>
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              {getCartItemCount()}
+            </span>
           </button>
         </div>
       )}
@@ -412,80 +458,62 @@ export default function CustomerProducts() {
         </>
       )}
 
-      {cart.length > 0 && (
-        <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
-          <h2 className="text-lg font-semibold mb-4">Panier ({cart.length})</h2>
-          <div className="space-y-3">
-            {cart.map((item) => {
-              const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
-              return (
-                <div
-                  key={item.product.id}
-                  className="flex items-center justify-between rounded-2xl border border-zinc-100 bg-[#F8FAFC] p-4"
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    {(() => {
-                      const images = item.product.image_urls || (item.product.image_url ? [item.product.image_url] : []);
-                      const firstImage = images[0];
-                      return firstImage ? (
-                        <img
-                          src={firstImage}
-                          alt={item.product.name}
-                          className="w-16 h-16 rounded-xl object-cover"
-                        />
-                      ) : null;
-                    })()}
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold">{item.product.name}</p>
-                      {item.product.sub_name && (
-                        <p className="text-xs text-[#6B7280]">{item.product.sub_name}</p>
-                      )}
-                      <div className="mt-1">
-                        <p className="text-sm font-semibold text-[#111827]">
-                          {item.product.price_ht.toFixed(2)} € HT
-                        </p>
-                        <p className="text-xs text-[#6B7280]">
-                          {priceTTC.toFixed(2)} € TTC
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                      className="w-8 h-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-[#111827] transition hover:bg-zinc-50"
-                    >
-                      −
-                    </button>
-                    <span className="w-8 text-center text-sm font-medium">
-                      {item.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      className="w-8 h-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-[#111827] transition hover:bg-zinc-50"
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(item.product.id)}
-                      className="ml-2 text-red-600 hover:text-red-700"
-                      title="Supprimer"
-                    >
-                      🗑️
-                    </button>
-                  </div>
+      {/* Modal de succès */}
+      {showSuccessModal && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                  <span className="text-3xl text-green-600">✓</span>
                 </div>
-              );
-            })}
+                <h2 className="text-2xl font-semibold text-[#111827] mb-2">
+                  Commande confirmée
+                </h2>
+                <p className="text-base text-[#6B7280] mb-6">
+                  Votre commande a bien été passée avec succès
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/customer/orders")}
+                  className="w-full inline-flex h-11 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
           </div>
-        </section>
+        </>
       )}
+
 
       <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
         <h2 className="text-lg font-semibold mb-6">Catalogue produits</h2>
+        {/* Barre de recherche */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 rounded-2xl border border-zinc-200 bg-white px-4 pl-11 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
+              🔍
+            </span>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#111827]"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         {products.length === 0 ? (
           <div className="text-center py-16 text-[#6B7280]">
             <div className="text-4xl mb-4">📦</div>
@@ -494,9 +522,20 @@ export default function CustomerProducts() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((product) => {
+            {products
+              .filter((product) => {
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase();
+                return (
+                  product.name.toLowerCase().includes(query) ||
+                  product.sub_name?.toLowerCase().includes(query) ||
+                  product.barcode.toLowerCase().includes(query) ||
+                  product.description?.toLowerCase().includes(query)
+                );
+              })
+              .map((product) => {
               const priceTTC = product.price_ht * (1 + product.tva / 100);
-              const cartItem = cart.find((item) => item.product.id === product.id);
+              const cartItem = cart.find((item) => item?.product?.id === product.id);
               return (
                 <div
                   key={product.id}
@@ -544,11 +583,6 @@ export default function CustomerProducts() {
                     >
                       {cartItem ? `Ajouté (${cartItem.quantity})` : "Ajouter au panier"}
                     </button>
-                    {addedProductId === product.id && (
-                      <p className="mt-2 text-xs text-center text-green-600 font-medium">
-                        ✓ Produit ajouté au panier
-                      </p>
-                    )}
                   </div>
                 </div>
               );
