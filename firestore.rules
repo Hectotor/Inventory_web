@@ -140,10 +140,10 @@ service cloud.firestore {
     // Orders collection
     match /orders/{orderId} {
       // Lecture : les clients peuvent lire leurs propres commandes
-      // Les admins et area managers peuvent lire toutes les commandes de leur entreprise
+      // Tous les utilisateurs de l'entreprise peuvent lire les commandes de leur entreprise
       allow read: if isAuthenticated() && (
         (getUserRole() == "customer" && resource.data.customer_id == request.auth.uid) ||
-        (canManageData() && resource.data.company_id == getUserCompanyId())
+        (resource.data.company_id == getUserCompanyId())
       );
       
       // Création : les clients peuvent créer des commandes pour leur entreprise
@@ -152,13 +152,58 @@ service cloud.firestore {
                        request.resource.data.customer_id == request.auth.uid &&
                        request.resource.data.company_id == getUserCompanyId();
       
-      // Modification : admins et area managers peuvent modifier les commandes de leur entreprise
-      allow update: if canManageData() && 
+      // Modification : tous les utilisateurs sauf les livreurs peuvent modifier les commandes de leur entreprise
+      allow update: if isAuthenticated() && 
+                      getUserRole() != "driver" &&
                       resource.data.company_id == getUserCompanyId();
       
       // Suppression : admins et area managers peuvent supprimer les commandes de leur entreprise
       allow delete: if canManageData() && 
                       resource.data.company_id == getUserCompanyId();
+    }
+    
+    // Warehouses collection
+    match /warehouses/{warehouseId} {
+      // Lecture : tous les utilisateurs de l'entreprise peuvent lire les entrepôts
+      allow read: if isSameCompany(resource.data.company_id);
+      
+      // Création : admins et area managers peuvent créer des entrepôts
+      allow create: if canManageData() && 
+                       request.resource.data.company_id == getUserCompanyId();
+      
+      // Modification/Suppression : admins et area managers peuvent modifier/supprimer
+      allow update, delete: if canManageData() && 
+                              resource.data.company_id == getUserCompanyId();
+    }
+    
+    // Stocks collection
+    match /stocks/{stockId} {
+      // Lecture : tous les utilisateurs de l'entreprise peuvent lire les stocks
+      allow read: if isSameCompany(resource.data.company_id);
+      
+      // Création : admin, area manager, sales et warehouse peuvent créer des stocks
+      allow create: if isAuthenticated() && 
+                       (getUserRole() == "admin" || 
+                        getUserRole() == "area manager" || 
+                        getUserRole() == "sales" || 
+                        getUserRole() == "warehouse") &&
+                       request.resource.data.company_id == getUserCompanyId();
+      
+      // Modification : admin, area manager, sales et warehouse peuvent modifier les stocks
+      allow update: if isAuthenticated() && 
+                       (getUserRole() == "admin" || 
+                        getUserRole() == "area manager" || 
+                        getUserRole() == "sales" || 
+                        getUserRole() == "warehouse") &&
+                       resource.data.company_id == getUserCompanyId();
+      
+      // Suppression : admin, area manager, sales et warehouse peuvent supprimer les stocks
+      allow delete: if isAuthenticated() && 
+                       (getUserRole() == "admin" || 
+                        getUserRole() == "area manager" || 
+                        getUserRole() == "sales" || 
+                        getUserRole() == "warehouse") &&
+                       resource.data.company_id == getUserCompanyId();
     }
     
   }

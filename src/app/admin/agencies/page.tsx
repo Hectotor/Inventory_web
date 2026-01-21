@@ -31,13 +31,27 @@ type Agency = {
   updated_at?: Timestamp;
 };
 
+type Warehouse = {
+  id: string;
+  agencies_id: string;
+  name: string;
+  company_id: string;
+  is_active: boolean;
+  created_at?: Timestamp;
+  updated_at?: Timestamp;
+};
+
 export default function AdminAgencies() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [warehouses, setWarehouses] = useState<Record<string, Warehouse[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingWarehouse, setIsSavingWarehouse] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
+  const [showWarehouseForm, setShowWarehouseForm] = useState<string | null>(null);
+  const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
@@ -49,6 +63,10 @@ export default function AdminAgencies() {
     postal_code: "",
     city: "",
     country: "",
+    is_active: true,
+  });
+  const [warehouseFormData, setWarehouseFormData] = useState({
+    name: "",
     is_active: true,
   });
 
@@ -78,7 +96,10 @@ export default function AdminAgencies() {
       }
 
       setCompanyId(userData.company_id);
-      await loadAgencies(userData.company_id);
+      await Promise.all([
+        loadAgencies(userData.company_id),
+        loadWarehouses(userData.company_id),
+      ]);
       setIsLoading(false);
     });
 
@@ -94,6 +115,26 @@ export default function AdminAgencies() {
       ...doc.data(),
     })) as Agency[];
     setAgencies(agenciesList);
+  };
+
+  const loadWarehouses = async (cid: string) => {
+    const warehousesSnapshot = await getDocs(
+      query(collection(db, "warehouses"), where("company_id", "==", cid)),
+    );
+    const warehousesList = warehousesSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Warehouse[];
+    
+    // Grouper les warehouses par agence
+    const warehousesByAgency: Record<string, Warehouse[]> = {};
+    warehousesList.forEach((warehouse) => {
+      if (!warehousesByAgency[warehouse.agencies_id]) {
+        warehousesByAgency[warehouse.agencies_id] = [];
+      }
+      warehousesByAgency[warehouse.agencies_id].push(warehouse);
+    });
+    setWarehouses(warehousesByAgency);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,7 +184,10 @@ export default function AdminAgencies() {
         });
       }
 
-      await loadAgencies(companyId);
+      await Promise.all([
+        loadAgencies(companyId),
+        loadWarehouses(companyId),
+      ]);
       resetForm();
 
       setTimeout(() => {
@@ -183,7 +227,10 @@ export default function AdminAgencies() {
     try {
       await deleteDoc(doc(db, "agencies", agencyId));
       if (companyId) {
-        await loadAgencies(companyId);
+        await Promise.all([
+          loadAgencies(companyId),
+          loadWarehouses(companyId),
+        ]);
       }
     } catch (error) {
       console.error("Error deleting agency:", error);
@@ -236,6 +283,99 @@ export default function AdminAgencies() {
     });
     setEditingAgency(null);
     setShowAddForm(false);
+  };
+
+  const resetWarehouseForm = () => {
+    setWarehouseFormData({
+      name: "",
+      is_active: true,
+    });
+    setEditingWarehouse(null);
+    setShowWarehouseForm(null);
+  };
+
+  const handleWarehouseSubmit = async (e: React.FormEvent, agencyId: string) => {
+    e.preventDefault();
+    if (!companyId) return;
+
+    setIsSavingWarehouse(true);
+    try {
+      const warehouseData: {
+        agencies_id: string;
+        name: string;
+        company_id: string;
+        is_active: boolean;
+      } = {
+        agencies_id: agencyId,
+        name: warehouseFormData.name.trim(),
+        company_id: companyId,
+        is_active: warehouseFormData.is_active,
+      };
+
+      if (editingWarehouse) {
+        await updateDoc(doc(db, "warehouses", editingWarehouse.id), {
+          ...warehouseData,
+          updated_at: serverTimestamp(),
+        });
+        setNotification({
+          message: `"${warehouseData.name}" a été modifié`,
+          type: "success",
+          agencyId: agencyId,
+        });
+      } else {
+        const docRef = await addDoc(collection(db, "warehouses"), {
+          ...warehouseData,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+        });
+        setNotification({
+          message: `"${warehouseData.name}" a été ajouté`,
+          type: "success",
+          agencyId: agencyId,
+        });
+      }
+
+      await loadWarehouses(companyId);
+      resetWarehouseForm();
+
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Error saving warehouse:", error);
+      setNotification({
+        message: "Erreur lors de l'enregistrement",
+        type: "error",
+        agencyId: agencyId,
+      });
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
+    } finally {
+      setIsSavingWarehouse(false);
+    }
+  };
+
+  const handleEditWarehouse = (warehouse: Warehouse) => {
+    setEditingWarehouse(warehouse);
+    setWarehouseFormData({
+      name: warehouse.name,
+      is_active: warehouse.is_active,
+    });
+    setShowWarehouseForm(warehouse.agencies_id);
+  };
+
+  const handleDeleteWarehouse = async (warehouseId: string, agencyId: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet entrepôt ?")) return;
+
+    try {
+      await deleteDoc(doc(db, "warehouses", warehouseId));
+      if (companyId) {
+        await loadWarehouses(companyId);
+      }
+    } catch (error) {
+      console.error("Error deleting warehouse:", error);
+    }
   };
 
   const formatDate = (timestamp?: Timestamp) => {
@@ -498,6 +638,128 @@ export default function AdminAgencies() {
                           <span>Modifiée: {formatDate(agency.updated_at)}</span>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Warehouses */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-semibold text-[#6B7280] uppercase tracking-[0.1em]">
+                        Entrepôts ({warehouses[agency.id]?.length || 0})
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetWarehouseForm();
+                          setShowWarehouseForm(agency.id);
+                        }}
+                        className="text-xs text-[#111827] hover:text-[#6B7280] font-medium"
+                      >
+                        + Ajouter
+                      </button>
+                    </div>
+                    {warehouses[agency.id] && warehouses[agency.id].length > 0 ? (
+                      <div className="space-y-1.5">
+                        {warehouses[agency.id].map((warehouse) => (
+                          <div
+                            key={warehouse.id}
+                            className="flex items-center justify-between rounded-lg border border-zinc-100 bg-[#F8FAFC] px-2 py-1.5 text-xs"
+                          >
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className={warehouse.is_active ? "text-green-600" : "text-red-600"}>
+                                {warehouse.is_active ? "✓" : "✗"}
+                              </span>
+                              <span className="font-medium text-[#111827]">{warehouse.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEditWarehouse(warehouse)}
+                                className="text-[#6B7280] hover:text-[#111827]"
+                                title="Modifier"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWarehouse(warehouse.id, agency.id)}
+                                className="text-red-600 hover:text-red-700"
+                                title="Supprimer"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#6B7280] italic">Aucun entrepôt</p>
+                    )}
+                  </div>
+
+                  {/* Formulaire Warehouse */}
+                  {showWarehouseForm === agency.id && (
+                    <div className="mb-4 p-3 rounded-xl border border-zinc-200 bg-white">
+                      <form onSubmit={(e) => handleWarehouseSubmit(e, agency.id)} className="space-y-3">
+                        <div className="grid gap-2">
+                          <label className="text-xs uppercase tracking-[0.1em] text-[#6B7280]">
+                            Nom de l'entrepôt
+                          </label>
+                          <input
+                            type="text"
+                            value={warehouseFormData.name}
+                            onChange={(e) =>
+                              setWarehouseFormData((prev) => ({
+                                ...prev,
+                                name: e.target.value,
+                              }))
+                            }
+                            required
+                            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                            placeholder="Entrepôt principal..."
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`warehouse_active_${agency.id}`}
+                            checked={warehouseFormData.is_active}
+                            onChange={(e) =>
+                              setWarehouseFormData((prev) => ({
+                                ...prev,
+                                is_active: e.target.checked,
+                              }))
+                            }
+                            className="h-3 w-3 rounded border-zinc-300 text-[#111827] focus:ring-2 focus:ring-zinc-100"
+                          />
+                          <label
+                            htmlFor={`warehouse_active_${agency.id}`}
+                            className="text-xs text-[#6B7280] cursor-pointer"
+                          >
+                            Actif
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={isSavingWarehouse}
+                            className="flex-1 inline-flex h-8 items-center justify-center rounded-lg bg-[#111827] px-3 text-xs font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            {isSavingWarehouse
+                              ? "Enregistrement..."
+                              : editingWarehouse
+                                ? "Modifier"
+                                : "Ajouter"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={resetWarehouseForm}
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-[#111827] transition hover:bg-zinc-50"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   )}
 

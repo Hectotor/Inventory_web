@@ -3,7 +3,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 
 import { auth, db, storage } from "@/lib/firebase";
 
@@ -198,15 +198,37 @@ export default function ZoneManagerProfile() {
     }
 
     setIsUploadingLogo(true);
-    const logoRef = ref(storage, `companies/${user.company_id}/branding/logo`);
-    await uploadBytes(logoRef, file);
-    const logoUrl = await getDownloadURL(logoRef);
-    await updateDoc(doc(db, "companies", user.company_id), {
-      logo_url: logoUrl,
-    });
-    setCompanyForm((prev) => ({ ...prev, logo_url: logoUrl }));
-    setCompany((prev) => (prev ? { ...prev, logo_url: logoUrl } : prev));
-    setIsUploadingLogo(false);
+    try {
+      // Supprimer l'ancien logo s'il existe
+      if (company?.logo_url) {
+        try {
+          const url = new URL(company.logo_url);
+          const pathMatch = url.pathname.match(/\/o\/(.+)\?/);
+          if (pathMatch) {
+            const filePath = decodeURIComponent(pathMatch[1]);
+            const oldLogoRef = ref(storage, filePath);
+            await deleteObject(oldLogoRef);
+          }
+        } catch (error) {
+          console.error("Error deleting old logo:", error);
+          // Continuer même si la suppression échoue
+        }
+      }
+
+      // Uploader le nouveau logo
+      const logoRef = ref(storage, `companies/${user.company_id}/branding/logo`);
+      await uploadBytes(logoRef, file);
+      const logoUrl = await getDownloadURL(logoRef);
+      await updateDoc(doc(db, "companies", user.company_id), {
+        logo_url: logoUrl,
+      });
+      setCompanyForm((prev) => ({ ...prev, logo_url: logoUrl }));
+      setCompany((prev) => (prev ? { ...prev, logo_url: logoUrl } : prev));
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   const handleProfileSave = async () => {

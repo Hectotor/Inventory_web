@@ -26,7 +26,8 @@ type Product = {
   barcode: string;
   is_active: boolean;
   company_id: string;
-  image_url?: string;
+  image_url?: string; // Pour compatibilité avec les anciens produits
+  image_urls?: string[]; // Nouveau : tableau d'images (max 3)
   created_at?: Timestamp;
   updated_at?: Timestamp;
 };
@@ -246,13 +247,17 @@ export default function CustomerProducts() {
                   className="flex items-center justify-between rounded-2xl border border-zinc-100 bg-[#F8FAFC] p-4"
                 >
                   <div className="flex items-center gap-4 flex-1">
-                    {item.product.image_url && (
-                      <img
-                        src={item.product.image_url}
-                        alt={item.product.name}
-                        className="w-16 h-16 rounded-xl object-cover"
-                      />
-                    )}
+                    {(() => {
+                      const images = item.product.image_urls || (item.product.image_url ? [item.product.image_url] : []);
+                      const firstImage = images[0];
+                      return firstImage ? (
+                        <img
+                          src={firstImage}
+                          alt={item.product.name}
+                          className="w-16 h-16 rounded-xl object-cover"
+                        />
+                      ) : null;
+                    })()}
                     <div className="flex-1">
                       <p className="text-sm font-semibold">{item.product.name}</p>
                       {item.product.sub_name && (
@@ -320,15 +325,19 @@ export default function CustomerProducts() {
                   key={product.id}
                   className="group relative rounded-2xl border border-white/60 bg-white/90 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur transition-all hover:shadow-[0_12px_40px_rgba(15,23,42,0.12)] hover:-translate-y-1"
                 >
-                  {product.image_url && (
-                    <div className="mb-4 aspect-square overflow-hidden rounded-xl bg-zinc-100">
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
+                  {(() => {
+                      const images = product.image_urls || (product.image_url ? [product.image_url] : []);
+                      const firstImage = images[0];
+                      return firstImage ? (
+                        <div className="mb-4 aspect-square overflow-hidden rounded-xl bg-zinc-100">
+                          <img
+                            src={firstImage}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : null;
+                    })()}
                   <div className="mb-4">
                     <h3 className="text-base font-semibold text-[#111827] mb-1">
                       {product.name}

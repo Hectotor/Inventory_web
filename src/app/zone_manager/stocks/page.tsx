@@ -4,38 +4,34 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getDoc, doc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { ProductsPage } from "@/components/products/ProductsPage";
+import { StocksPage } from "@/components/stocks/StocksPage";
 
-export default function AdminProducts() {
-  const [userRole, setUserRole] = useState<string | null>(null);
+export default function ZoneManagerStocks() {
+  const [currentUserAgencyId, setCurrentUserAgencyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
-        setUserRole(null);
+        setCurrentUserAgencyId(null);
         setIsLoading(false);
         return;
       }
 
       const userSnapshot = await getDoc(doc(db, "users", currentUser.uid));
       if (!userSnapshot.exists()) {
-        setUserRole(null);
+        setCurrentUserAgencyId(null);
         setIsLoading(false);
         return;
       }
 
-      const userData = userSnapshot.data() as { role?: string };
-      setUserRole(userData.role || null);
+      const userData = userSnapshot.data() as { agencies_id?: string };
+      setCurrentUserAgencyId(userData.agencies_id || null);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
-
-  const canManageProducts = () => {
-    return userRole === "admin" || userRole === "area manager";
-  };
 
   if (isLoading) {
     return (
@@ -48,5 +44,5 @@ export default function AdminProducts() {
     );
   }
 
-  return <ProductsPage canManageProducts={canManageProducts()} />;
+  return <StocksPage canManageAllAgencies={false} currentUserAgencyId={currentUserAgencyId} />;
 }
