@@ -112,16 +112,6 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
                   <p className="text-sm font-semibold">{companyName}</p>
                 </>
               )}
-              {userRole && (
-                <>
-                  <p className="text-[0.65rem] uppercase tracking-[0.3em] text-[#6B7280] mt-2">
-                    Rôle
-                  </p>
-                  <p className="text-xs font-medium text-[#111827]">
-                    {roleLabels[userRole] || userRole}
-                  </p>
-                </>
-              )}
             </>
           )}
         </div>
@@ -190,11 +180,6 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
               <>
                 {companyName && (
                   <p className="text-sm font-semibold text-[#111827]">{companyName}</p>
-                )}
-                {userRole && (
-                  <p className="text-xs text-[#6B7280]">
-                    {roleLabels[userRole] || userRole}
-                  </p>
                 )}
               </>
             )}

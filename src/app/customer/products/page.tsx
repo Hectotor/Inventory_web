@@ -44,6 +44,8 @@ export default function CustomerProducts() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [showOrderSummary, setShowOrderSummary] = useState(false);
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
@@ -113,6 +115,8 @@ export default function CustomerProducts() {
       }
       return [...prev, { product, quantity: 1 }];
     });
+    setAddedProductId(product.id);
+    setTimeout(() => setAddedProductId(null), 2000);
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -134,13 +138,30 @@ export default function CustomerProducts() {
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
       const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
-      return total + priceTTC * item.quantity;
+      // Arrondir le prix unitaire TTC à 2 décimales
+      const roundedPriceTTC = Math.round(priceTTC * 100) / 100;
+      // Calculer le total pour ce produit et l'arrondir à 2 décimales
+      const productTotal = roundedPriceTTC * item.quantity;
+      const roundedProductTotal = Math.round(productTotal * 100) / 100;
+      return total + roundedProductTotal;
     }, 0);
+  };
+
+  const getCartTotalHT = () => {
+    return cart.reduce((total, item) => {
+      return total + item.product.price_ht * item.quantity;
+    }, 0);
+  };
+
+  const handlePlaceOrderClick = () => {
+    if (!companyId || !customerId || cart.length === 0) return;
+    setShowOrderSummary(true);
   };
 
   const handlePlaceOrder = async () => {
     if (!companyId || !customerId || cart.length === 0) return;
 
+    setShowOrderSummary(false);
     setIsPlacingOrder(true);
     try {
       const orderItems = cart.map((item) => ({
@@ -206,12 +227,12 @@ export default function CustomerProducts() {
           <div className="text-right">
             <p className="text-xs text-[#6B7280]">Total panier</p>
             <p className="text-lg font-semibold">
-              {getCartTotal().toFixed(2)} €
+              {getCartTotalHT().toFixed(2)} € HT
             </p>
           </div>
           <button
             type="button"
-            onClick={handlePlaceOrder}
+            onClick={handlePlaceOrderClick}
             disabled={isPlacingOrder}
             className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
           >
@@ -233,6 +254,162 @@ export default function CustomerProducts() {
             <p>{notification.message}</p>
           </div>
         </div>
+      )}
+
+      {/* Modal de récapitulatif */}
+      {showOrderSummary && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowOrderSummary(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl rounded-[32px] border border-white/60 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-[#111827]">
+                  Récapitulatif de la commande
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowOrderSummary(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-100 hover:bg-zinc-200 transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {cart.map((item) => {
+                  const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
+                  // Arrondir le prix TTC à 2 décimales
+                  const roundedPriceTTC = Math.round(priceTTC * 100) / 100;
+                  const totalHT = Math.round(item.product.price_ht * item.quantity * 100) / 100;
+                  const totalTTC = Math.round(roundedPriceTTC * item.quantity * 100) / 100;
+                  return (
+                    <div
+                      key={item.product.id}
+                      className="flex items-start gap-4 rounded-2xl border border-zinc-100 bg-[#F8FAFC] p-4"
+                    >
+                      {(() => {
+                        const images = item.product.image_urls || (item.product.image_url ? [item.product.image_url] : []);
+                        const firstImage = images[0];
+                        return firstImage ? (
+                          <img
+                            src={firstImage}
+                            alt={item.product.name}
+                            className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-xl bg-zinc-200 flex items-center justify-center flex-shrink-0">
+                            📦
+                          </div>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-semibold text-[#111827] mb-1">
+                          {item.product.name}
+                        </p>
+                        {item.product.sub_name && (
+                          <p className="text-xs text-[#6B7280] mb-2">
+                            {item.product.sub_name}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#6B7280]">Quantité:</span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                              className="w-7 h-7 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-[#111827] transition hover:bg-zinc-50"
+                            >
+                              −
+                            </button>
+                            <span className="w-8 text-center text-sm font-semibold text-[#111827]">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                              className="w-7 h-7 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-[#111827] transition hover:bg-zinc-50"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className="text-[#6B7280]">
+                            Prix unitaire: <span className="font-semibold text-[#111827]">{item.product.price_ht.toFixed(2)} € HT</span>
+                          </span>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-zinc-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-[#6B7280]">Sous-total HT:</span>
+                            <span className="text-sm font-semibold text-[#111827]">
+                              {totalHT.toFixed(2)} € HT
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-sm text-[#6B7280]">
+                              TVA ({item.product.tva}%):
+                            </span>
+                            <span className="text-sm text-[#6B7280]">
+                              {(Math.round((totalTTC - totalHT) * 100) / 100).toFixed(2)} €
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-200">
+                            <span className="text-base font-semibold text-[#111827]">
+                              Total TTC:
+                            </span>
+                            <span className="text-base font-semibold text-[#111827]">
+                              {totalTTC.toFixed(2)} € TTC
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-zinc-200 pt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-base text-[#6B7280]">Total HT:</span>
+                  <span className="text-base font-semibold text-[#111827]">
+                    {(Math.round(getCartTotalHT() * 100) / 100).toFixed(2)} € HT
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-base text-[#6B7280]">Total TVA:</span>
+                  <span className="text-base text-[#6B7280]">
+                    {(Math.round((getCartTotal() - getCartTotalHT()) * 100) / 100).toFixed(2)} €
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t-2 border-zinc-300">
+                  <span className="text-xl font-semibold text-[#111827]">Total TTC:</span>
+                  <span className="text-xl font-semibold text-[#111827]">
+                    {(Math.round(getCartTotal() * 100) / 100).toFixed(2)} € TTC
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowOrderSummary(false)}
+                  className="flex-1 inline-flex h-11 items-center justify-center rounded-2xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-[#111827] transition hover:bg-zinc-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePlaceOrder}
+                  disabled={isPlacingOrder}
+                  className="flex-1 inline-flex h-11 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isPlacingOrder ? "En cours..." : "Confirmer la commande"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {cart.length > 0 && (
@@ -359,13 +536,20 @@ export default function CustomerProducts() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => addToCart(product)}
-                    className="w-full inline-flex h-10 items-center justify-center rounded-xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
-                  >
-                    {cartItem ? `Ajouté (${cartItem.quantity})` : "Ajouter au panier"}
-                  </button>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => addToCart(product)}
+                      className="w-full inline-flex h-10 items-center justify-center rounded-xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
+                    >
+                      {cartItem ? `Ajouté (${cartItem.quantity})` : "Ajouter au panier"}
+                    </button>
+                    {addedProductId === product.id && (
+                      <p className="mt-2 text-xs text-center text-green-600 font-medium">
+                        ✓ Produit ajouté au panier
+                      </p>
+                    )}
+                  </div>
                 </div>
               );
             })}
