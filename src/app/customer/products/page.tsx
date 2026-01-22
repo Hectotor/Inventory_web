@@ -227,7 +227,10 @@ export default function CustomerProducts() {
 
       await Promise.all(orderItemsPromises);
 
+      // Vider le panier
       setCart([]);
+      localStorage.removeItem("cart");
+      
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Erreur lors de la création de la commande:", error);

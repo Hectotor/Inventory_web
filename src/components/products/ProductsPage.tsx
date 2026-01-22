@@ -741,30 +741,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
             )}
           </div>
         </div>
-        {/* Barre de recherche */}
-        <div className="mb-6">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Rechercher un produit..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 rounded-2xl border border-zinc-200 bg-white px-4 pl-11 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
-            />
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
-              🔍
-            </span>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#111827]"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
         {products.length === 0 ? (
           <div className="text-center py-16 text-[#6B7280]">
             <div className="text-4xl mb-4">📦</div>

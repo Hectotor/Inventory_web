@@ -14,6 +14,7 @@ const menuItems = [
   { label: "Agences", href: "/admin/agencies", icon: "🧭" },
   { label: "Produits", href: "/admin/products", icon: "🧩" },
   { label: "Stocks", href: "/admin/stocks", icon: "📊" },
+  { label: "Clients", href: "/admin/clients", icon: "👥" },
   { label: "Équipe", href: "/admin/team", icon: "🤝" },
   { label: "Profil", href: "/admin/profile", icon: "🪪" },
 ];
@@ -232,10 +233,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-full overflow-y-auto rounded-r-[32px] border-r border-white/60 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
-          <div className="hidden lg:block">
-            <SidebarContent />
-            </div>
+        <div className="h-full overflow-y-auto rounded-r-[32px] border-r border-white/60 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur pt-20">
           <div className="lg:hidden">
             <nav className="space-y-2">
               {menuItems.map((item) => (
@@ -246,11 +244,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     router.push(item.href);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="group flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-2 text-left text-sm font-medium text-[#6B7280] transition hover:border-zinc-200 hover:bg-white hover:text-[#111827]"
+                  className="group flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-2.5 text-left text-sm font-medium text-[#6B7280] transition hover:border-zinc-200 hover:bg-white hover:text-[#111827]"
                 >
                   <span className="flex items-center gap-3">
                     <span className="text-lg">{item.icon}</span>
-                    {item.label}
+                    <span className="whitespace-nowrap">{item.label}</span>
                   </span>
                   <span className="opacity-0 transition group-hover:opacity-100">
                     →
