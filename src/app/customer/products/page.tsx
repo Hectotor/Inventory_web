@@ -235,8 +235,8 @@ export default function CustomerProducts() {
         const orderItemRef = doc(collection(db, "order_items"));
         const price_ht = item.product.price_ht;
         const tva = customerTva; // Utiliser la TVA du client
-        const total_ht = price_ht * item.quantity;
-        const total_ttc = price_ht * (1 + tva / 100) * item.quantity;
+        const total_ht = Math.round((price_ht * item.quantity) * 100) / 100; // Arrondi à 2 décimales
+        const total_ttc = Math.round((price_ht * (1 + tva / 100) * item.quantity) * 100) / 100; // Arrondi à 2 décimales
         
         await setDoc(orderItemRef, {
           order_items_id: orderItemRef.id,
