@@ -30,7 +30,7 @@ type AlertProduct = {
 type Order = {
   orders_id: string;
   customer_id: string;
-  status: "PREPARATION" | "IN_DELIVERY" | "DELIVERED";
+  status: "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED";
   created_at?: Timestamp;
   customer_name?: string;
 };
@@ -52,7 +52,7 @@ export function DashboardPage({ stocksUrl, ordersUrl }: DashboardPageProps) {
   });
   const [orders, setOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "PREPARATION" | "IN_DELIVERY" | "DELIVERED">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED">("ALL");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -335,6 +335,17 @@ export function DashboardPage({ stocksUrl, ordersUrl }: DashboardPageProps) {
               </button>
               <button
                 type="button"
+                onClick={() => setStatusFilter("TAKEN")}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                  statusFilter === "TAKEN"
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-zinc-100 text-[#6B7280] hover:bg-zinc-200"
+                }`}
+              >
+                Pris en charge
+              </button>
+              <button
+                type="button"
                 onClick={() => setStatusFilter("IN_DELIVERY")}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                   statusFilter === "IN_DELIVERY"
@@ -363,12 +374,14 @@ export function DashboardPage({ stocksUrl, ordersUrl }: DashboardPageProps) {
             {(() => {
               const statusLabels: Record<string, string> = {
                 PREPARATION: "En préparation",
+                TAKEN: "Pris en charge",
                 IN_DELIVERY: "En cours de livraison",
                 DELIVERED: "Livrée",
               };
 
               const statusColors: Record<string, string> = {
                 PREPARATION: "bg-orange-100 text-orange-700",
+                TAKEN: "bg-purple-100 text-purple-700",
                 IN_DELIVERY: "bg-blue-100 text-blue-700",
                 DELIVERED: "bg-green-100 text-green-700",
               };

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { getUserRole, signInWithEmail } from "@/services/auth";
+import { getUserRole, signInWithEmail, isUserActive, signOutUser } from "@/services/auth";
 
 export default function Connexion() {
   const router = useRouter();
@@ -20,6 +20,18 @@ export default function Connexion() {
 
     try {
       const credential = await signInWithEmail(email, password);
+      
+      // Vérifier si l'utilisateur est actif
+      const userIsActive = await isUserActive(credential.user.uid);
+      
+      if (!userIsActive) {
+        // Déconnecter l'utilisateur si inactif
+        await signOutUser();
+        setError("Problème de connexion, veuillez contacter votre administrateur");
+        setIsLoading(false);
+        return;
+      }
+      
       const role = await getUserRole(credential.user.uid);
       const roleLower = role?.toLowerCase();
       if (roleLower === "area manager") {

@@ -10,6 +10,7 @@ import { signOutUser } from "@/services/auth";
 
 const menuItems = [
   { label: "Vue d'ensemble", href: "/zone_manager", icon: "✨" },
+  { label: "Commandes", href: "/zone_manager/orders", icon: "📦" },
   { label: "Produits", href: "/zone_manager/products", icon: "🧩" },
   { label: "Stocks", href: "/zone_manager/stocks", icon: "📊" },
   { label: "Clients", href: "/zone_manager/clients", icon: "👥" },

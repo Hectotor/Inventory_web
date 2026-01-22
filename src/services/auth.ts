@@ -19,3 +19,12 @@ export async function getUserRole(userId: string) {
   const data = snapshot.data();
   return typeof data.role === "string" ? data.role : null;
 }
+
+export async function isUserActive(userId: string): Promise<boolean> {
+  const snapshot = await getDoc(doc(db, "users", userId));
+  if (!snapshot.exists()) {
+    return false;
+  }
+  const data = snapshot.data();
+  return data.is_active === true;
+}

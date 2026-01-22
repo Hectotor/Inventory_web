@@ -10,6 +10,8 @@ import {
   doc,
   query,
   where,
+  updateDoc,
+  serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 
@@ -20,6 +22,10 @@ type OrderItemData = {
   order_id: string;
   product_id: string;
   quantity: number;
+  price_ht?: number;
+  tva?: number;
+  total_ht?: number;
+  total_ttc?: number;
 };
 
 type Product = {
@@ -71,12 +77,14 @@ type Customer = {
 
 const statusLabels: Record<Order["status"], string> = {
   PREPARATION: "En préparation",
+  TAKEN: "Pris en charge",
   IN_DELIVERY: "En cours de livraison",
   DELIVERED: "Livrée",
 };
 
 const statusColors: Record<Order["status"], string> = {
   PREPARATION: "bg-orange-100 text-orange-700",
+  TAKEN: "bg-purple-100 text-purple-700",
   IN_DELIVERY: "bg-blue-100 text-blue-700",
   DELIVERED: "bg-green-100 text-green-700",
 };
@@ -93,6 +101,12 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusUpdateMessage, setStatusUpdateMessage] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -115,6 +129,7 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
         return;
       }
 
+      setCurrentUserRole(userData.role || null);
       await loadOrder(orderId, userData.company_id);
       setIsLoading(false);
     });
@@ -141,7 +156,7 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
         customer_id: string;
         sales_id?: string | null;
         created_by: string;
-        status: "PREPARATION" | "IN_DELIVERY" | "DELIVERED";
+        status: "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED";
         created_at?: Timestamp;
       };
 
@@ -181,22 +196,36 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
         ...doc.data(),
       })) as OrderItemData[];
 
-      // Charger les produits pour calculer les prix
+      // Charger les produits pour obtenir les noms et images, mais utiliser les prix depuis order_items
       const items = await Promise.all(
         orderItemsData.map(async (itemData) => {
+          // Utiliser les prix sauvegardés dans order_items
+          const price_ht = itemData.price_ht ?? 0;
+          const TVA_RATE = 20; // TVA fixe de 20%
+          const tva = itemData.tva ?? TVA_RATE;
+          const total_ht = itemData.total_ht ?? 0;
+          const total_ttc = itemData.total_ttc ?? 0;
+
+          // Charger le produit uniquement pour obtenir le nom et l'image
           const productDoc = await getDoc(doc(db, "products", itemData.product_id));
           if (!productDoc.exists()) {
-            return null;
+            // Si le produit n'existe plus, utiliser les données de base depuis order_items
+            return {
+              product_id: itemData.product_id,
+              product_name: "Produit supprimé",
+              product_sub_name: undefined,
+              product_image: undefined,
+              quantity: itemData.quantity,
+              price_ht,
+              tva,
+              total_ht,
+              total_ttc,
+            } as OrderItem;
           }
-          const product = { id: productDoc.id, ...productDoc.data() } as Product;
           
+          const product = { id: productDoc.id, ...productDoc.data() } as Product;
           const images = product.image_urls || (product.image_url ? [product.image_url] : []);
           const firstImage = images[0];
-          
-          const price_ht = product.price_ht;
-          const tva = product.tva;
-          const total_ht = price_ht * itemData.quantity;
-          const total_ttc = price_ht * (1 + tva / 100) * itemData.quantity;
 
           return {
             product_id: itemData.product_id,
@@ -247,6 +276,44 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
       hour: "2-digit",
       minute: "2-digit",
     }).format(date);
+  };
+
+  const canModifyOrder = () => {
+    return currentUserRole === "admin" || currentUserRole === "area manager";
+  };
+
+  const handleStatusChange = async (newStatus: Order["status"]) => {
+    if (!order || !canModifyOrder()) return;
+
+    setIsUpdatingStatus(true);
+    try {
+      await updateDoc(doc(db, "orders", order.orders_id), {
+        status: newStatus,
+        updated_at: serverTimestamp(),
+      });
+
+      // Mettre à jour l'état local
+      setOrder({ ...order, status: newStatus });
+      setStatusUpdateMessage({
+        message: "Statut de la commande mis à jour avec succès",
+        type: "success",
+      });
+
+      setTimeout(() => {
+        setStatusUpdateMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      setStatusUpdateMessage({
+        message: "Erreur lors de la mise à jour du statut",
+        type: "error",
+      });
+      setTimeout(() => {
+        setStatusUpdateMessage(null);
+      }, 3000);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   if (isLoading) {
@@ -311,11 +378,38 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
               <p className="text-xs uppercase tracking-[0.2em] text-[#6B7280] mb-1">
                 Statut
               </p>
-              <span
-                className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusColors[order.status]}`}
-              >
-                {statusLabels[order.status]}
-              </span>
+              {canModifyOrder() ? (
+                <div className="space-y-2">
+                  <select
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(e.target.value as Order["status"])}
+                    disabled={isUpdatingStatus}
+                    className={`w-full h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed ${statusColors[order.status]}`}
+                  >
+                    <option value="PREPARATION" className="font-semibold">En préparation</option>
+                    <option value="TAKEN" className="font-semibold">Pris en charge</option>
+                    <option value="IN_DELIVERY" className="font-semibold">En cours de livraison</option>
+                    <option value="DELIVERED" className="font-semibold">Livrée</option>
+                  </select>
+                  {statusUpdateMessage && (
+                    <div
+                      className={`rounded-xl border px-3 py-2 text-xs ${
+                        statusUpdateMessage.type === "success"
+                          ? "border-green-200 bg-green-50 text-green-800"
+                          : "border-red-200 bg-red-50 text-red-800"
+                      }`}
+                    >
+                      {statusUpdateMessage.message}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span
+                  className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusColors[order.status]}`}
+                >
+                  {statusLabels[order.status]}
+                </span>
+              )}
             </div>
 
             <div>
@@ -450,7 +544,7 @@ export function OrderDetailPage({ orderId, backUrl, backLabel = "Retour" }: Orde
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-[#6B7280]">
-                    TVA ({item.tva}%):
+                    TVA (20%):
                   </span>
                   <span className="text-xs text-[#6B7280]">
                     {(Math.round((item.total_ttc - item.total_ht) * 100) / 100).toFixed(2)} €

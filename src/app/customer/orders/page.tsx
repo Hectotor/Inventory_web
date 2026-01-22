@@ -21,7 +21,7 @@ type Order = {
   customer_id: string;
   sales_id?: string | null;
   created_by: string;
-  status: "PREPARATION" | "IN_DELIVERY" | "DELIVERED";
+  status: "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED";
   created_at?: Timestamp;
   items_count: number;
   total_ht: number;
@@ -30,12 +30,14 @@ type Order = {
 
 const statusLabels: Record<Order["status"], string> = {
   PREPARATION: "En préparation",
+  TAKEN: "Pris en charge",
   IN_DELIVERY: "En cours de livraison",
   DELIVERED: "Livrée",
 };
 
 const statusColors: Record<Order["status"], string> = {
   PREPARATION: "bg-orange-100 text-orange-700",
+  TAKEN: "bg-purple-100 text-purple-700",
   IN_DELIVERY: "bg-blue-100 text-blue-700",
   DELIVERED: "bg-green-100 text-green-700",
 };
@@ -95,7 +97,7 @@ export default function CustomerOrders() {
       customer_id: string;
       sales_id?: string | null;
       created_by: string;
-      status: "PREPARATION" | "IN_DELIVERY" | "DELIVERED";
+      status: "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED";
       created_at?: Timestamp;
     }>;
 
@@ -113,24 +115,15 @@ export default function CustomerOrders() {
         const orderItemsData = orderItemsSnapshot.docs.map((doc) => ({
           product_id: doc.data().product_id,
           quantity: doc.data().quantity,
+          price_ht: doc.data().price_ht ?? 0,
+          tva: doc.data().tva ?? 20, // TVA fixe de 20%
+          total_ht: doc.data().total_ht ?? 0,
+          total_ttc: doc.data().total_ttc ?? 0,
         }));
 
-        // Charger les produits pour calculer les prix
-        let total_ht = 0;
-        let total_ttc = 0;
-        
-        for (const itemData of orderItemsData) {
-          const productDoc = await getDoc(doc(db, "products", itemData.product_id));
-          if (productDoc.exists()) {
-            const product = productDoc.data();
-            const price_ht = product.price_ht || 0;
-            const tva = product.tva || 0;
-            const itemTotalHT = price_ht * itemData.quantity;
-            const itemTotalTTC = price_ht * (1 + tva / 100) * itemData.quantity;
-            total_ht += itemTotalHT;
-            total_ttc += itemTotalTTC;
-          }
-        }
+        // Utiliser les prix sauvegardés dans order_items
+        const total_ht = orderItemsData.reduce((sum, item) => sum + (item.total_ht ?? 0), 0);
+        const total_ttc = orderItemsData.reduce((sum, item) => sum + (item.total_ttc ?? 0), 0);
 
         return {
           orders_id: orderData.orders_id,

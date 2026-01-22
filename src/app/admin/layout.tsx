@@ -10,7 +10,7 @@ import { signOutUser } from "@/services/auth";
 
 const menuItems = [
   { label: "Vue d'ensemble", href: "/admin", icon: "✨" },
-  { label: "Commandes", href: "/admin", icon: "📦" },
+  { label: "Commandes", href: "/admin/orders", icon: "📦" },
   { label: "Agences", href: "/admin/agencies", icon: "🧭" },
   { label: "Produits", href: "/admin/products", icon: "🧩" },
   { label: "Stocks", href: "/admin/stocks", icon: "📊" },

@@ -17,13 +17,16 @@ import {
 
 import { auth, db } from "@/lib/firebase";
 
+// TVA fixe de 20%
+const TVA_RATE = 20;
+
 type Product = {
   id: string;
   name: string;
   sub_name?: string;
   description?: string;
   price_ht: number;
-  tva: number;
+  tva?: number; // Optionnel, TVA fixe de 20% utilisée par défaut
   barcode: string;
   is_active: boolean;
   company_id: string;
@@ -169,7 +172,8 @@ export default function CustomerProducts() {
 
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
-      const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
+      const TVA_RATE = 20; // TVA fixe de 20%
+      const priceTTC = item.product.price_ht * (1 + TVA_RATE / 100);
       // Arrondir le prix unitaire TTC à 2 décimales
       const roundedPriceTTC = Math.round(priceTTC * 100) / 100;
       // Calculer le total pour ce produit et l'arrondir à 2 décimales
@@ -200,6 +204,18 @@ export default function CustomerProducts() {
     setShowOrderSummary(false);
     setIsPlacingOrder(true);
     try {
+      // Récupérer la TVA du client depuis son document users
+      const customerDoc = await getDoc(doc(db, "users", customerId));
+      let customerTva = 20; // TVA par défaut
+      if (customerDoc.exists()) {
+        const customerData = customerDoc.data();
+        if (customerData.non_assujetti_tva === true) {
+          customerTva = 0; // Pas de TVA si non assujetti
+        } else {
+          customerTva = customerData.tva ?? 20; // Utiliser la TVA du client ou 20% par défaut
+        }
+      }
+      
       // Créer une référence de document avec un ID généré
       const orderRef = doc(collection(db, "orders"));
       
@@ -214,14 +230,23 @@ export default function CustomerProducts() {
         created_at: serverTimestamp(),
       });
 
-      // Créer les documents order_items avec order_items_id directement
+      // Créer les documents order_items avec order_items_id directement et les prix
       const orderItemsPromises = cart.map(async (item) => {
         const orderItemRef = doc(collection(db, "order_items"));
+        const price_ht = item.product.price_ht;
+        const tva = customerTva; // Utiliser la TVA du client
+        const total_ht = price_ht * item.quantity;
+        const total_ttc = price_ht * (1 + tva / 100) * item.quantity;
+        
         await setDoc(orderItemRef, {
           order_items_id: orderItemRef.id,
           order_id: orderRef.id,
           product_id: item.product.id,
           quantity: item.quantity,
+          price_ht: price_ht,
+          tva: tva,
+          total_ht: total_ht,
+          total_ttc: total_ttc,
         });
       });
 
@@ -329,7 +354,8 @@ export default function CustomerProducts() {
 
               <div className="space-y-4 mb-6">
                 {cart.map((item) => {
-                  const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
+                  const TVA_RATE = 20; // TVA fixe de 20%
+      const priceTTC = item.product.price_ht * (1 + TVA_RATE / 100);
                   // Arrondir le prix TTC à 2 décimales
                   const roundedPriceTTC = Math.round(priceTTC * 100) / 100;
                   const totalHT = Math.round(item.product.price_ht * item.quantity * 100) / 100;
@@ -397,7 +423,7 @@ export default function CustomerProducts() {
                           </div>
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-sm text-[#6B7280]">
-                              TVA ({item.product.tva}%):
+                              TVA (20%):
                             </span>
                             <span className="text-sm text-[#6B7280]">
                               {(Math.round((totalTTC - totalHT) * 100) / 100).toFixed(2)} €
@@ -537,7 +563,7 @@ export default function CustomerProducts() {
                 );
               })
               .map((product) => {
-              const priceTTC = product.price_ht * (1 + product.tva / 100);
+              const priceTTC = product.price_ht * (1 + TVA_RATE / 100);
               const cartItem = cart.find((item) => item?.product?.id === product.id);
               return (
                 <div
@@ -574,7 +600,7 @@ export default function CustomerProducts() {
                         {product.price_ht.toFixed(2)} € HT
                       </p>
                       <p className="text-xs text-[#6B7280] mt-1">
-                        {priceTTC.toFixed(2)} € TTC (TVA {product.tva}%)
+                        {priceTTC.toFixed(2)} € TTC (TVA 20%)
                       </p>
                     </div>
                   </div>

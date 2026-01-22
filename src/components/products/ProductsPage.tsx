@@ -20,13 +20,16 @@ import { auth, db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { ChangeEvent } from "react";
 
+// TVA fixe de 20%
+const TVA_RATE = 20;
+
 type Product = {
   id: string;
   name: string;
   sub_name?: string;
   description?: string;
   price_ht: number;
-  tva: number;
+  tva?: number; // Optionnel, TVA fixe de 20% utilisée par défaut
   barcode: string;
   is_active: boolean;
   company_id: string;
@@ -64,7 +67,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
     sub_name: "",
     description: "",
     price_ht: "",
-    tva: "",
     barcode: "",
     is_active: true,
     image_url: "",
@@ -202,7 +204,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
         sub_name?: string;
         description?: string;
         price_ht: number;
-        tva: number;
         barcode: string;
         is_active: boolean;
         company_id: string;
@@ -210,7 +211,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
       } = {
         name: formData.name.trim(),
         price_ht: parseFloat(formData.price_ht) || 0,
-        tva: parseFloat(formData.tva) || 0,
         barcode: formData.barcode.trim(),
         is_active: formData.is_active,
         company_id: companyId,
@@ -267,7 +267,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
       sub_name: product.sub_name || "",
       description: product.description || "",
       price_ht: product.price_ht.toString(),
-      tva: product.tva.toString(),
       barcode: product.barcode || "",
       is_active: product.is_active,
       image_url: product.image_url || "",
@@ -392,7 +391,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
       sub_name: "",
       description: "",
       price_ht: "",
-      tva: "",
       barcode: "",
       is_active: true,
       image_url: "",
@@ -596,23 +594,6 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
                   className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                 />
               </div>
-              <div className="grid gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
-                  TVA (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={formData.tva}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, tva: e.target.value }))
-                  }
-                  required
-                  className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
-                />
-              </div>
             </div>
             <div className="grid gap-2">
               <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
@@ -764,7 +745,7 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
               })
               .map((product) => {
               const priceTTC =
-                product.price_ht * (1 + product.tva / 100);
+                product.price_ht * (1 + TVA_RATE / 100);
               return (
                 <div
                   key={product.id}
@@ -827,21 +808,9 @@ export function ProductsPage({ canManageProducts }: ProductsPageProps) {
                   {/* Prix */}
                   <div className="mb-4 space-y-1.5">
                     <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-[#6B7280]">Prix HT</span>
+                      <span className="text-xs font-semibold text-[#6B7280]">Prix HT</span>
                       <span className="text-sm font-medium text-[#111827]">
                         {product.price_ht.toFixed(2)} €
-                      </span>
-                    </div>
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-[#6B7280]">TVA ({product.tva}%)</span>
-                      <span className="text-xs text-[#6B7280]">
-                        +{(priceTTC - product.price_ht).toFixed(2)} €
-                      </span>
-                    </div>
-                    <div className="flex items-baseline justify-between pt-1.5 border-t border-zinc-100">
-                      <span className="text-xs font-medium text-[#111827]">Prix TTC</span>
-                      <span className="text-base font-semibold text-[#111827]">
-                        {priceTTC.toFixed(2)} €
                       </span>
                     </div>
                   </div>

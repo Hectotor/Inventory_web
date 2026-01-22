@@ -20,6 +20,10 @@ type OrderItemData = {
   order_id: string;
   product_id: string;
   quantity: number;
+  price_ht?: number;
+  tva?: number;
+  total_ht?: number;
+  total_ttc?: number;
 };
 
 type Product = {
@@ -50,7 +54,7 @@ type Order = {
   customer_id: string;
   sales_id?: string | null;
   created_by: string;
-  status: "PREPARATION" | "IN_DELIVERY" | "DELIVERED";
+  status: "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED";
   created_at?: Timestamp;
   items: OrderItem[];
   total_ht: number;
@@ -59,12 +63,14 @@ type Order = {
 
 const statusLabels: Record<Order["status"], string> = {
   PREPARATION: "En préparation",
+  TAKEN: "Pris en charge",
   IN_DELIVERY: "En cours de livraison",
   DELIVERED: "Livrée",
 };
 
 const statusColors: Record<Order["status"], string> = {
   PREPARATION: "bg-orange-100 text-orange-700",
+  TAKEN: "bg-purple-100 text-purple-700",
   IN_DELIVERY: "bg-blue-100 text-blue-700",
   DELIVERED: "bg-green-100 text-green-700",
 };
@@ -125,7 +131,7 @@ export default function OrderDetailPage() {
         customer_id: string;
         sales_id?: string | null;
         created_by: string;
-        status: "PREPARATION" | "IN_DELIVERY" | "DELIVERED";
+        status: "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED";
         created_at?: Timestamp;
       };
 
@@ -148,22 +154,36 @@ export default function OrderDetailPage() {
         ...doc.data(),
       })) as OrderItemData[];
 
-      // Charger les produits pour calculer les prix
+      // Charger les produits pour obtenir les noms et images, mais utiliser les prix depuis order_items
       const items = await Promise.all(
         orderItemsData.map(async (itemData) => {
+          // Utiliser les prix sauvegardés dans order_items
+          const price_ht = itemData.price_ht ?? 0;
+          const TVA_RATE = 20; // TVA fixe de 20%
+          const tva = itemData.tva ?? TVA_RATE;
+          const total_ht = itemData.total_ht ?? 0;
+          const total_ttc = itemData.total_ttc ?? 0;
+
+          // Charger le produit uniquement pour obtenir le nom et l'image
           const productDoc = await getDoc(doc(db, "products", itemData.product_id));
           if (!productDoc.exists()) {
-            return null;
+            // Si le produit n'existe plus, utiliser les données de base depuis order_items
+            return {
+              product_id: itemData.product_id,
+              product_name: "Produit supprimé",
+              product_sub_name: undefined,
+              product_image: undefined,
+              quantity: itemData.quantity,
+              price_ht,
+              tva,
+              total_ht,
+              total_ttc,
+            } as OrderItem;
           }
-          const product = { id: productDoc.id, ...productDoc.data() } as Product;
           
+          const product = { id: productDoc.id, ...productDoc.data() } as Product;
           const images = product.image_urls || (product.image_url ? [product.image_url] : []);
           const firstImage = images[0];
-          
-          const price_ht = product.price_ht;
-          const tva = product.tva;
-          const total_ht = price_ht * itemData.quantity;
-          const total_ttc = price_ht * (1 + tva / 100) * itemData.quantity;
 
           return {
             product_id: itemData.product_id,
@@ -313,7 +333,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-[#6B7280]">
-                    TVA ({item.tva}%):
+                    TVA (20%):
                   </span>
                   <span className="text-xs text-[#6B7280]">
                     {(Math.round((item.total_ttc - item.total_ht) * 100) / 100).toFixed(2)} €

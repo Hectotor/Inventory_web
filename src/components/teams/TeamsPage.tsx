@@ -180,7 +180,7 @@ export function TeamsPage({ filterByAgency = false }: TeamsPageProps) {
         created_at: doc.data().created_at,
         updated_at: doc.data().updated_at,
       }))
-      .filter((member) => member.role !== "admin") as TeamMember[];
+      .filter((member) => member.role !== "admin" && member.role !== "customer") as TeamMember[];
     setAllTeamMembers(membersList);
   };
 

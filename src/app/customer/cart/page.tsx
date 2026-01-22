@@ -12,7 +12,7 @@ type Product = {
   sub_name?: string;
   description?: string;
   price_ht: number;
-  tva: number;
+  tva?: number; // Optionnel, TVA fixe de 20% utilisée par défaut
   barcode: string;
   is_active: boolean;
   company_id: string;
@@ -113,7 +113,8 @@ export default function CustomerCart() {
 
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
-      const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
+      const TVA_RATE = 20; // TVA fixe de 20%
+      const priceTTC = item.product.price_ht * (1 + TVA_RATE / 100);
       const roundedPriceTTC = Math.round(priceTTC * 100) / 100;
       const productTotal = roundedPriceTTC * item.quantity;
       const roundedProductTotal = Math.round(productTotal * 100) / 100;
@@ -136,7 +137,19 @@ export default function CustomerCart() {
 
     setIsPlacingOrder(true);
     try {
-      const { collection, serverTimestamp, doc: firestoreDoc, setDoc: firestoreSetDoc } = await import("firebase/firestore");
+      const { collection, serverTimestamp, doc: firestoreDoc, setDoc: firestoreSetDoc, getDoc } = await import("firebase/firestore");
+      
+      // Récupérer la TVA du client depuis son document users
+      const customerDoc = await getDoc(firestoreDoc(db, "users", customerId));
+      let customerTva = 20; // TVA par défaut
+      if (customerDoc.exists()) {
+        const customerData = customerDoc.data();
+        if (customerData.non_assujetti_tva === true) {
+          customerTva = 0; // Pas de TVA si non assujetti
+        } else {
+          customerTva = customerData.tva ?? 20; // Utiliser la TVA du client ou 20% par défaut
+        }
+      }
       
       // Créer une référence de document avec un ID généré
       const orderRef = firestoreDoc(collection(db, "orders"));
@@ -152,14 +165,23 @@ export default function CustomerCart() {
         created_at: serverTimestamp(),
       });
 
-      // Créer les documents order_items avec order_items_id directement
+      // Créer les documents order_items avec order_items_id directement et les prix
       const orderItemsPromises = cart.map(async (item) => {
         const orderItemRef = firestoreDoc(collection(db, "order_items"));
+        const price_ht = item.product.price_ht;
+        const tva = customerTva; // Utiliser la TVA du client
+        const total_ht = price_ht * item.quantity;
+        const total_ttc = price_ht * (1 + tva / 100) * item.quantity;
+        
         await firestoreSetDoc(orderItemRef, {
           order_items_id: orderItemRef.id,
           order_id: orderRef.id,
           product_id: item.product.id,
           quantity: item.quantity,
+          price_ht: price_ht,
+          tva: tva,
+          total_ht: total_ht,
+          total_ttc: total_ttc,
         });
       });
 
@@ -230,7 +252,8 @@ export default function CustomerCart() {
       <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
         <div className="space-y-3">
           {cart.map((item) => {
-            const priceTTC = item.product.price_ht * (1 + item.product.tva / 100);
+            const TVA_RATE = 20; // TVA fixe de 20%
+      const priceTTC = item.product.price_ht * (1 + TVA_RATE / 100);
             return (
               <div
                 key={item.product.id}
