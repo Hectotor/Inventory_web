@@ -188,17 +188,32 @@ export default function CustomerOrders() {
   });
 
   return (
-    <div className="space-y-6">
+    <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
+            Commandes
+          </p>
+          <h1 className="text-2xl font-semibold mt-1">
+            Mes commandes ({orders.length})
+          </h1>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-[#6B7280]">Total commandes</p>
+          <p className="text-lg font-semibold">
+            {orders.reduce((total, order) => total + order.total_ht, 0).toFixed(2)} € HT
+          </p>
+        </div>
+      </div>
+
       {orders.length === 0 ? (
-        <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
-          <div className="text-center py-16 text-[#6B7280]">
-            <div className="text-4xl mb-4">📦</div>
-            <p className="text-sm font-medium mb-1">Aucune commande</p>
-            <p className="text-xs">Vous n'avez pas encore passé de commande</p>
-          </div>
-        </section>
+        <div className="text-center py-16 text-[#6B7280]">
+          <div className="text-4xl mb-4">📦</div>
+          <p className="text-sm font-medium mb-1">Aucune commande</p>
+          <p className="text-xs">Vous n'avez pas encore passé de commande</p>
+        </div>
       ) : (
-        <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+        <>
           {/* Barre de recherche */}
           <div className="mb-6">
             <div className="relative">
@@ -270,8 +285,8 @@ export default function CustomerOrders() {
               ))}
             </div>
           )}
-        </section>
+        </>
       )}
-    </div>
+    </section>
   );
 }

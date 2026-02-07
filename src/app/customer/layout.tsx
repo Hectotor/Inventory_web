@@ -9,11 +9,12 @@ import { auth, db } from "@/lib/firebase";
 import { signOutUser } from "@/services/auth";
 
 const menuItems = [
-  { label: "Produits", href: "/customer/products", icon: "🧩" },
+  { label: "Produits", href: "/customer", icon: "🧩" },
   { label: "Panier", href: "/customer/cart", icon: "🛒" },
   { label: "Mes commandes", href: "/customer/orders", icon: "📦" },
   { label: "Profil", href: "/customer/profile", icon: "🪪" },
 ];
+
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",

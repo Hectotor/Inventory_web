@@ -19,6 +19,7 @@ const menuItems = [
   { label: "Profil", href: "/admin/profile", icon: "🪪" },
 ];
 
+
 type AdminLayoutProps = {
   children: ReactNode;
 };

@@ -212,20 +212,37 @@ export default function CustomerCart() {
 
   if (cart.length === 0) {
     return (
-      <div className="space-y-6">
+      <section className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
+              Panier
+            </p>
+            <h1 className="text-2xl font-semibold mt-1">
+              Panier (0)
+            </h1>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-[#6B7280]">Total panier</p>
+            <p className="text-lg font-semibold">
+              0.00 € HT
+            </p>
+          </div>
+        </div>
+
         <div className="text-center py-16 text-[#6B7280]">
           <div className="text-4xl mb-4">🛒</div>
           <p className="text-sm font-medium mb-1">Votre panier est vide</p>
           <p className="text-xs mb-4">Ajoutez des produits pour commencer</p>
           <button
             type="button"
-            onClick={() => router.push("/customer/products")}
+            onClick={() => router.push("/customer")}
             className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-black"
           >
             Voir les produits
           </button>
         </div>
-      </div>
+      </section>
     );
   }
 

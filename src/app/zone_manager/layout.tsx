@@ -17,6 +17,7 @@ const menuItems = [
   { label: "Profil", href: "/zone_manager/profile", icon: "🪪" },
 ];
 
+
 type ZoneManagerLayoutProps = {
   children: ReactNode;
 };
