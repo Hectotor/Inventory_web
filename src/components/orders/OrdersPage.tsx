@@ -26,6 +26,7 @@ export function OrdersPage({ ordersUrl, filterByAgency = false }: OrdersPageProp
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED">("ALL");
+  const [dateFilter, setDateFilter] = useState<{ month: number | null; year: number | null }>({ month: null, year: null });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -117,6 +118,15 @@ export function OrdersPage({ ordersUrl, filterByAgency = false }: OrdersPageProp
   useEffect(() => {
     let filtered = allOrders;
 
+    // Filtrer par date (mois/année)
+    if (dateFilter.month !== null && dateFilter.year !== null) {
+      filtered = filtered.filter((order) => {
+        if (!order.created_at) return false;
+        const date = order.created_at.toDate();
+        return date.getMonth() === dateFilter.month && date.getFullYear() === dateFilter.year;
+      });
+    }
+
     // Filtrer par statut
     if (statusFilter !== "ALL") {
       filtered = filtered.filter((order) => order.status === statusFilter);
@@ -134,7 +144,7 @@ export function OrdersPage({ ordersUrl, filterByAgency = false }: OrdersPageProp
     }
 
     setOrders(filtered);
-  }, [statusFilter, searchQuery, allOrders]);
+  }, [statusFilter, searchQuery, allOrders, dateFilter]);
 
   const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return "—";
@@ -191,25 +201,21 @@ export function OrdersPage({ ordersUrl, filterByAgency = false }: OrdersPageProp
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
-            Gestion des commandes
-          </p>
-          <h1 className="text-2xl font-semibold mt-1">Commandes</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[#6B7280]">
-            {orders.length} / {allOrders.length}{" "}
-            {allOrders.length === 1 ? "commande" : "commandes"}
-          </span>
-        </div>
-      </div>
-
-      <section className="mt-10">
+      <section className="mt-0">
         <div className="rounded-[28px] border border-white/70 bg-white/85 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold">Commandes récentes</h2>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
+                Gestion des commandes
+              </p>
+              <h1 className="text-2xl font-semibold mt-1">Commandes</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-[#6B7280]">
+                {orders.length} / {allOrders.length}{" "}
+                {allOrders.length === 1 ? "commande" : "commandes"}
+              </span>
+            </div>
           </div>
 
           {/* Barre de recherche et filtres */}
@@ -283,6 +289,48 @@ export function OrdersPage({ ordersUrl, filterByAgency = false }: OrdersPageProp
               >
                 Livrées
               </button>
+            </div>
+
+            {/* Filtre par calendrier */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={dateFilter.year ?? ""}
+                onChange={(e) => setDateFilter({ ...dateFilter, year: e.target.value === "" ? null : parseInt(e.target.value) })}
+                className="h-11 rounded-xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+              >
+                <option value="">Toutes les années</option>
+                {Array.from(new Set(allOrders.map(order => order.created_at?.toDate().getFullYear()).filter((year): year is number => year !== undefined))).sort((a, b) => b - a).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <select
+                value={dateFilter.month ?? ""}
+                onChange={(e) => setDateFilter({ ...dateFilter, month: e.target.value === "" ? null : parseInt(e.target.value) })}
+                className="h-11 rounded-xl border border-zinc-200 bg-white px-4 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+              >
+                <option value="">Tous les mois</option>
+                <option value="0">Janvier</option>
+                <option value="1">Février</option>
+                <option value="2">Mars</option>
+                <option value="3">Avril</option>
+                <option value="4">Mai</option>
+                <option value="5">Juin</option>
+                <option value="6">Juillet</option>
+                <option value="7">Août</option>
+                <option value="8">Septembre</option>
+                <option value="9">Octobre</option>
+                <option value="10">Novembre</option>
+                <option value="11">Décembre</option>
+              </select>
+              {(dateFilter.month !== null || dateFilter.year !== null) && (
+                <button
+                  type="button"
+                  onClick={() => setDateFilter({ month: null, year: null })}
+                  className="h-11 px-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition"
+                >
+                  Réinitialiser
+                </button>
+              )}
             </div>
           </div>
 
