@@ -85,7 +85,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
     <>
       <div className="flex items-center gap-3">
         {companyLogo ? (
-          <div className="h-11 w-11 overflow-hidden rounded-2xl border border-zinc-200 bg-white flex items-center justify-center">
+          <div className="h-16 w-16 overflow-hidden rounded-2xl border border-zinc-200 bg-white flex items-center justify-center">
             <img
               src={companyLogo}
               alt={companyName || "Logo"}
@@ -93,7 +93,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
             />
           </div>
         ) : (
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#111827] to-[#334155] text-sm font-semibold text-white shadow-md">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#111827] to-[#334155] text-lg font-semibold text-white shadow-md">
             🛒
           </div>
         )}
@@ -152,14 +152,14 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#111827]">
+    <div className="h-screen overflow-hidden bg-[#F8FAFC] text-[#111827]">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.18),_transparent_55%)]" />
       
       {/* Mobile AppBar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-md border-b border-white/60 shadow-sm">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {companyLogo ? (
-            <div className="h-10 w-10 overflow-hidden rounded-xl border border-zinc-200 bg-white flex items-center justify-center">
+            <div className="h-20 w-20 overflow-hidden rounded-2xl border border-zinc-200 bg-white flex items-center justify-center">
               <img
                 src={companyLogo}
                 alt={companyName || "Logo"}
@@ -167,7 +167,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
               />
             </div>
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#111827] to-[#334155] text-sm font-semibold text-white shadow-md">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#111827] to-[#334155] text-3xl font-semibold text-white shadow-lg">
               🛒
             </div>
           )}
@@ -254,15 +254,15 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
         </div>
       </aside>
 
-      <div className="mx-auto flex min-h-screen max-w-7xl gap-6 px-6 py-8 lg:pt-8 pt-20">
+      <div className="flex h-full gap-6 px-6 overflow-hidden">
         {/* Desktop sidebar */}
-        <aside className="hidden w-72 flex-shrink-0 lg:block">
-          <div className="sticky top-8 rounded-[32px] border border-white/60 bg-white/75 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur">
+        <aside className="hidden w-72 flex-shrink-0 lg:block py-6">
+          <div className="h-full rounded-[32px] border border-white/60 bg-white/75 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.1)] backdrop-blur overflow-y-auto">
             <SidebarContent />
           </div>
         </aside>
 
-        <div className="flex-1 lg:ml-0 ml-0">
+        <div className="flex-1 lg:ml-0 ml-0 overflow-y-auto py-6">
           <main>{children}</main>
         </div>
       </div>

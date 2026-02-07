@@ -16,6 +16,7 @@ type CompanyProfile = {
   country: string;
   is_active: boolean;
   logo_url?: string;
+  siren?: string;
   head_office_siret?: string;
   vat_number?: string;
   legal_form?: string;
@@ -109,6 +110,7 @@ export default function ZoneManagerProfile() {
             city: companyData.city ?? "",
             country: companyData.country ?? "",
             logo_url: companyData.logo_url ?? "",
+            siren: companyData.siren ?? "",
             head_office_siret: companyData.head_office_siret ?? "",
             vat_number: companyData.vat_number ?? "",
             legal_form: companyData.legal_form ?? "",
@@ -130,7 +132,7 @@ export default function ZoneManagerProfile() {
           doc(db, "agencies", userData.agencies_id),
         );
         if (agencySnapshot.exists()) {
-          const agencyData = agencySnapshot.data() as Agency;
+          const agencyData = agencySnapshot.data() as Omit<Agency, "id">;
           setAgency({
             id: agencySnapshot.id,
             ...agencyData,
