@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import {
   collection,
   addDoc,
@@ -32,10 +33,12 @@ type Agency = {
 };
 
 export default function ZoneManagerAgencies() {
+  const router = useRouter();
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
   const [notification, setNotification] = useState<{
@@ -57,7 +60,9 @@ export default function ZoneManagerAgencies() {
       if (!currentUser) {
         setAgencies([]);
         setCompanyId(null);
+        setUserRole(null);
         setIsLoading(false);
+        router.push("/connexion");
         return;
       }
 
@@ -65,11 +70,22 @@ export default function ZoneManagerAgencies() {
       if (!userSnapshot.exists()) {
         setAgencies([]);
         setCompanyId(null);
+        setUserRole(null);
         setIsLoading(false);
+        router.push("/connexion");
         return;
       }
 
-      const userData = userSnapshot.data() as { company_id?: string };
+      const userData = userSnapshot.data() as { company_id?: string; role?: string };
+      const role = userData.role || null;
+      setUserRole(role);
+      
+      // Rediriger les zone managers vers le dashboard
+      if (role === "area manager") {
+        router.push("/zone_manager");
+        return;
+      }
+      
       if (!userData.company_id) {
         setAgencies([]);
         setCompanyId(null);
@@ -83,7 +99,7 @@ export default function ZoneManagerAgencies() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const loadAgencies = async (cid: string) => {
     const agenciesSnapshot = await getDocs(
@@ -256,6 +272,18 @@ export default function ZoneManagerAgencies() {
         <div className="space-y-4 w-full max-w-md">
           <div className="h-8 w-48 rounded-full bg-slate-200/80 animate-pulse" />
           <div className="h-64 rounded-[32px] bg-slate-200/80 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'accès refusé si ce n'est pas un admin
+  if (userRole !== "admin") {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="rounded-[28px] border border-red-200 bg-red-50/80 p-8 text-center">
+          <p className="text-lg font-semibold text-red-900 mb-2">Accès refusé</p>
+          <p className="text-sm text-red-700">Seuls les administrateurs peuvent accéder à cette page.</p>
         </div>
       </div>
     );
