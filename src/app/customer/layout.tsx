@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -30,6 +30,7 @@ type CustomerLayoutProps = {
 
 export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -118,25 +119,32 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
         </div>
       </div>
       <nav className="mt-8 space-y-2">
-        {menuItems.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => {
-              router.push(item.href);
-              setIsMobileMenuOpen(false);
-            }}
-            className="group flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-2 text-left text-sm font-medium text-[#6B7280] transition hover:border-zinc-200 hover:bg-white hover:text-[#111827]"
-          >
-            <span className="flex items-center gap-3">
-              <span className="text-lg">{item.icon}</span>
-              {item.label}
-            </span>
-            <span className="opacity-0 transition group-hover:opacity-100">
-              →
-            </span>
-          </button>
-        ))}
+        {menuItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => {
+                router.push(item.href);
+                setIsMobileMenuOpen(false);
+              }}
+              className={`group flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-medium transition ${
+                isActive
+                  ? "border border-zinc-200 bg-white text-[#111827] shadow-sm"
+                  : "border border-transparent text-[#6B7280] hover:border-zinc-200 hover:bg-white hover:text-[#111827]"
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <span className="text-lg">{item.icon}</span>
+                {item.label}
+              </span>
+              <span className={`transition ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                →
+              </span>
+            </button>
+          );
+        })}
       </nav>
       <button
         type="button"
@@ -220,25 +228,32 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
           </div>
           <div className="lg:hidden">
             <nav className="space-y-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => {
-                    router.push(item.href);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="group flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-2 text-left text-sm font-medium text-[#6B7280] transition hover:border-zinc-200 hover:bg-white hover:text-[#111827]"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="text-lg">{item.icon}</span>
-                    {item.label}
-                  </span>
-                  <span className="opacity-0 transition group-hover:opacity-100">
-                    →
-                  </span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      router.push(item.href);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`group flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-medium transition ${
+                      isActive
+                        ? "border border-zinc-200 bg-white text-[#111827] shadow-sm"
+                        : "border border-transparent text-[#6B7280] hover:border-zinc-200 hover:bg-white hover:text-[#111827]"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="text-lg">{item.icon}</span>
+                      {item.label}
+                    </span>
+                    <span className={`transition ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                      →
+                    </span>
+                  </button>
+                );
+              })}
             </nav>
             <button
               type="button"

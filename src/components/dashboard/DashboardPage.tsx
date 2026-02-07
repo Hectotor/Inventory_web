@@ -14,6 +14,12 @@ import {
   calculateOrderStats,
   calculateStockAlerts,
 } from "@/lib/agencyFilter";
+import {
+  getAvailableYears,
+  getAvailableMonths,
+  getMonthName,
+  filterByMonthYear,
+} from "@/lib/dateUtils";
 
 type Stock = {
   id: string;
@@ -89,6 +95,8 @@ export function DashboardPage({ stocksUrl, ordersUrl }: DashboardPageProps) {
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PREPARATION" | "TAKEN" | "IN_DELIVERY" | "DELIVERED">("ALL");
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [selectedAgency, setSelectedAgency] = useState<string>("ALL");
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>("");
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [analyticsData, setAnalyticsData] = useState({
@@ -323,15 +331,16 @@ export function DashboardPage({ stocksUrl, ordersUrl }: DashboardPageProps) {
     return () => unsubscribe();
   }, []);
 
-  // Filtrer les commandes quand l'agence sélectionnée change
+  // Filtrer les commandes quand l'agence ou la date sélectionnée change
   useEffect(() => {
     if (allOrders.length > 0 && allUsers.length > 0) {
-      const filteredOrders = filterOrdersByAgency(allOrders, allUsers, selectedAgency);
+      let filteredOrders = filterOrdersByAgency(allOrders, allUsers, selectedAgency);
+      filteredOrders = filterByMonthYear(filteredOrders, selectedMonth, selectedYear);
       setOrders(filteredOrders);
       const stats = calculateOrderStats(filteredOrders);
       setStats(stats);
     }
-  }, [selectedAgency, allOrders, allUsers]);
+  }, [selectedAgency, selectedMonth, selectedYear, allOrders, allUsers]);
 
   // Filtrer les stocks et recalculer les alertes quand l'agence sélectionnée change
   useEffect(() => {
@@ -413,23 +422,57 @@ export function DashboardPage({ stocksUrl, ordersUrl }: DashboardPageProps) {
               </p>
               <h1 className="text-2xl font-semibold mt-1">Tableau de bord</h1>
             </div>
-            {/* Sélecteur d'agence - visible seulement pour les admins */}
-            {agencies.length > 0 && userRole !== "area manager" && (
+            <div className="flex items-center gap-3">
+              {/* Filtre par année */}
               <div className="relative">
                 <select
-                  value={selectedAgency}
-                  onChange={(e) => setSelectedAgency(e.target.value)}
+                  value={selectedYear || ""}
+                  onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
                   className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 pr-10 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
                 >
-                  <option value="ALL">Toutes les agences</option>
-                  {agencies.map((agency) => (
-                    <option key={agency.id} value={agency.id}>
-                      {agency.name}
+                  <option value="">Toutes les années</option>
+                  {getAvailableYears(allOrders).map((year) => (
+                    <option key={year} value={year}>
+                      {year}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
+              
+              {/* Filtre par mois */}
+              <div className="relative">
+                <select
+                  value={selectedMonth || ""}
+                  onChange={(e) => setSelectedMonth(e.target.value ? parseInt(e.target.value) : null)}
+                  className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 pr-10 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                >
+                  <option value="">Tous les mois</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
+                    <option key={month} value={month}>
+                      {getMonthName(month)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sélecteur d'agence - visible seulement pour les admins */}
+              {agencies.length > 0 && userRole !== "area manager" && (
+                <div className="relative">
+                  <select
+                    value={selectedAgency}
+                    onChange={(e) => setSelectedAgency(e.target.value)}
+                    className="h-11 rounded-2xl border border-zinc-200 bg-white px-4 pr-10 text-sm text-[#111827] shadow-sm transition focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
+                  >
+                    <option value="ALL">Toutes les agences</option>
+                    {agencies.map((agency) => (
+                      <option key={agency.id} value={agency.id}>
+                        {agency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Cartes de statistiques */}
